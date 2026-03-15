@@ -1,290 +1,141 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <base target="_top">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sistem Pentaksiran Autentik</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>e-BIG PDPP 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #fff;
-            padding: 20px 0;
-        }
-
-        .glass {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-
-        .form-control, .form-select {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            border-radius: 12px;
-        }
-
-        .form-control:focus, .form-select:focus {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            box-shadow: none;
-            border-color: #fff;
-        }
-
-        .form-control::placeholder { color: rgba(255, 255, 255, 0.6); }
-
-        .btn-glass {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            color: white;
-            font-weight: 600;
-            border-radius: 12px;
-            transition: 0.3s;
-        }
-
-        .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.3);
-            color: #fff;
-            transform: translateY(-2px);
-        }
-
-        .profile-img-large { width: 100px; height: 100px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.5); object-fit: cover; }
-        
-        .rakan-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            padding: 15px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: 0.3s;
-            height: 100%;
-        }
-
-        .rakan-card:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
-            cursor: pointer;
-        }
-
-        .criteria-label { display: flex; justify-content: space-between; font-weight: 500; margin-top: 10px; }
-        
-        input[type=range]::-webkit-slider-thumb { background: #fff; }
+        body { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); border-radius: 30px; border: 1px solid rgba(255,255,255,0.4); box-shadow: 0 20px 50px rgba(0,0,0,0.05); }
+        .avatar-upload { width: 140px; height: 180px; object-fit: cover; border-radius: 20px; border: 4px solid white; transition: 0.3s; }
+        .avatar-upload:hover { transform: scale(1.02); filter: brightness(0.9); cursor: pointer; }
+        .hidden { display: none !important; }
+        .loader { border-top-color: #3b82f6; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body>
-    <div id="app" class="container">
-        <div class="text-center mb-5 mt-3">
-            <h2 class="fw-bold"><i class="bi bi-shield-check"></i> SPB 2026</h2>
-            <p class="opacity-75">Sistem Pentaksiran Berterusan Pelajar</p>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="loader" class="fixed inset-0 bg-black/40 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-sm">
+        <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+        <p class="text-white font-bold">Memproses Data...</p>
+    </div>
+
+    <div id="view-login" class="glass w-full max-w-md p-10 text-center">
+        <h1 class="text-3xl font-black text-blue-900 mb-8 tracking-tighter italic">e-BIG PDPP 2026</h1>
+        <div class="flex bg-gray-100 rounded-2xl mb-6 p-1">
+            <button onclick="setMode('student')" id="btn-m-std" class="flex-1 py-3 text-xs font-bold rounded-xl bg-blue-900 text-white shadow-lg">PELAJAR</button>
+            <button onclick="setMode('lecturer')" id="btn-m-lec" class="flex-1 py-3 text-xs font-bold rounded-xl text-gray-400">PENSYARAH</button>
         </div>
+        <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+            <input type="text" id="user-id" class="w-full p-4 rounded-2xl border text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none" placeholder="NO. KAD PENGENALAN" required>
+            <div id="pass-field" class="hidden">
+                <input type="password" id="user-pass" class="w-full p-4 rounded-2xl border text-center font-bold" placeholder="KATA LALUAN">
+            </div>
+            <button class="w-full bg-blue-700 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-black transition-all">MASUK</button>
+        </form>
+        <p class="text-[10px] text-gray-400 mt-8 font-bold uppercase tracking-widest">© 2026 Unit Kokurikulum IPGKDA</p>
+    </div>
 
-        <div id="loginSection" class="glass p-4 mx-auto" style="max-width: 450px;">
-            <h4 class="mb-4"><i class="bi bi-person-lock me-2"></i> Log Masuk</h4>
-            <div class="mb-3">
-                <label class="small mb-1">Tahun Sesi</label>
-                <select id="loginTahun" class="form-select">
-                    <option value="2026">Sesi 2026</option>
-                    <option value="2027">Sesi 2027</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label class="small mb-1">ID Pengguna (No. KP / Email)</label>
-                <input type="text" id="username" class="form-control" placeholder="Cth: 010203040506">
-            </div>
-            <div id="passDiv" class="mb-3 d-none">
-                <label class="small mb-1">Kata Laluan</label>
-                <input type="password" id="password" class="form-control" placeholder="Masukkan Password">
-            </div>
-            <div class="mb-4">
-                <label class="small mb-1">Peranan</label>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-glass w-50 active" onclick="setRole('Pelajar', this)">Pelajar</button>
-                    <button class="btn btn-glass w-50" onclick="setRole('Pensyarah', this)">Pensyarah</button>
-                </div>
-            </div>
-            <button onclick="handleLogin()" id="btnLogin" class="btn btn-light w-100 py-3 fw-bold rounded-3">Masuk Sekarang</button>
+    <div id="view-student" class="glass w-full max-w-5xl p-8 hidden animate-fade-in">
+        <div class="flex justify-between items-center border-b pb-6 mb-8">
+            <div><h2 id="std-name" class="text-2xl font-black text-blue-900 uppercase">...</h2><p id="std-meta" class="text-blue-500 font-bold text-[10px]"></p></div>
+            <button onclick="location.reload()" class="bg-red-50 text-red-500 font-bold text-xs px-6 py-2 rounded-xl border border-red-100 uppercase">Keluar</button>
         </div>
-
-        <div id="pelajarSection" class="d-none">
-            <div class="glass p-4 mb-4 d-flex align-items-center">
-                <img id="myPhoto" src="" class="profile-img-large me-3 shadow">
-                <div>
-                    <h4 id="myName" class="mb-0 fw-bold">...</h4>
-                    <span class="badge bg-white text-dark mt-1" id="myKumpulan">Kumpulan</span>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div class="text-center">
+                <div class="relative inline-block group">
+                    <img id="display-img" class="avatar-upload shadow-xl bg-gray-200" src="https://via.placeholder.com/140x180?text=Kamera" onclick="document.getElementById('file-input').click()">
+                    <input type="file" id="file-input" class="hidden" accept="image/*" onchange="uploadImage(this)">
+                    <div class="mt-4 text-[9px] font-bold text-blue-900 uppercase">Klik Gambar Untuk Kemaskini</div>
                 </div>
-                <button class="btn btn-sm btn-outline-light ms-auto" onclick="location.reload()"><i class="bi bi-box-arrow-left"></i></button>
             </div>
-            
-            <h5 class="mb-3"><i class="bi bi-people me-2"></i> Penilaian Ahli Kumpulan</h5>
-            <div id="senaraiRakan" class="row g-3 mb-5"></div>
-
-            <div id="assessmentForm" class="glass p-4 d-none mb-5">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4 class="mb-0">Penilaian: <span id="targetName" class="text-info"></span></h4>
-                    <button class="btn-close btn-close-white" onclick="closeForm()"></button>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="mb-3">
-                            <div class="criteria-label"><span>Kepimpinan</span><span id="v1">3</span></div>
-                            <input type="range" class="form-range" id="m1" min="1" max="5" value="3" oninput="updateChart()">
-                        </div>
-                        <div class="mb-3">
-                            <div class="criteria-label"><span>Kerjasama</span><span id="v2">3</span></div>
-                            <input type="range" class="form-range" id="m2" min="1" max="5" value="3" oninput="updateChart()">
-                        </div>
-                        <div class="mb-3">
-                            <div class="criteria-label"><span>Komunikasi</span><span id="v3">3</span></div>
-                            <input type="range" class="form-range" id="m3" min="1" max="5" value="3" oninput="updateChart()">
-                        </div>
-                        <div class="mb-3">
-                            <div class="criteria-label"><span>Komitmen</span><span id="v4">3</span></div>
-                            <input type="range" class="form-range" id="m4" min="1" max="5" value="3" oninput="updateChart()">
-                        </div>
-                        <div class="mb-3">
-                            <div class="criteria-label"><span>Sahsiah</span><span id="v5">3</span></div>
-                            <input type="range" class="form-range" id="m5" min="1" max="5" value="3" oninput="updateChart()">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="bg-white rounded-4 p-3 shadow-inner">
-                            <canvas id="spiderChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="hantarMarkah()" id="btnSubmit" class="btn btn-primary w-100 py-3 mt-4 fw-bold shadow">
-                    <i class="bi bi-send-check me-2"></i> Hantar Penilaian
-                </button>
+            <div class="lg:col-span-2 space-y-6">
+                <h3 class="text-xs font-black text-blue-900 border-l-4 border-blue-900 pl-3 uppercase">Penilaian Rakan Sekumpulan</h3>
+                <div id="teammates-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <button id="btn-submit-peer" onclick="submitPeer()" class="hidden w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg">HANTAR PENILAIAN</button>
             </div>
         </div>
     </div>
 
     <script>
-        let currentRole = 'Pelajar';
-        let myChart = null;
-        let currentUser = {};
-        let selectedTarget = "";
+        const API = "URL_WEB_APP_ANDA_DI_SINI"; 
+        let currentMode = 'student', user = null, teammates = [];
 
-        function setRole(role, btn) {
-            currentRole = role;
-            document.querySelectorAll('.btn-glass').forEach(b => b.classList.remove('active', 'bg-white', 'text-dark'));
-            btn.classList.add('active', 'bg-white', 'text-dark');
-            document.getElementById('passDiv').classList.toggle('d-none', role === 'Pelajar');
+        function setMode(m) {
+            currentMode = m;
+            document.getElementById('pass-field').classList.toggle('hidden', m === 'student');
+            document.getElementById('btn-m-std').className = m === 'student' ? "flex-1 py-3 text-xs font-bold rounded-xl bg-blue-900 text-white shadow-lg" : "flex-1 py-3 text-xs font-bold rounded-xl text-gray-400";
+            document.getElementById('btn-m-lec').className = m === 'lecturer' ? "flex-1 py-3 text-xs font-bold rounded-xl bg-blue-900 text-white shadow-lg" : "flex-1 py-3 text-xs font-bold rounded-xl text-gray-400";
+            document.getElementById('user-id').placeholder = m === 'student' ? "NO. KAD PENGENALAN" : "EMAIL PENSYARAH";
         }
 
-        function handleLogin() {
-            const btn = document.getElementById('btnLogin');
-            const u = document.getElementById('username').value;
-            const p = document.getElementById('password').value;
-            const thn = document.getElementById('loginTahun').value;
-
-            if(!u) return alert("Sila masukkan ID!");
-            
-            btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyemak...';
-            
-            google.script.run.withSuccessHandler(res => {
-                if(res.status === 'success') {
-                    if(res.role === 'Pelajar') { showPelajarUI(res); }
-                    else { alert("Mod Pensyarah dalam pembangunan."); btn.disabled = false; btn.innerText = "Masuk Sekarang"; }
-                } else {
-                    alert(res.message);
-                    btn.disabled = false; btn.innerText = "Masuk Sekarang";
-                }
-            }).userLogin(u, p, currentRole, thn);
-        }
-
-        function showPelajarUI(res) {
-            document.getElementById('loginSection').classList.add('d-none');
-            document.getElementById('pelajarSection').classList.remove('d-none');
-            currentUser = res.profil;
-            document.getElementById('myName').innerText = res.profil.nama;
-            document.getElementById('myKumpulan').innerText = "Kumpulan: " + res.profil.kumpulan;
-            document.getElementById('myPhoto').src = res.profil.gambar || "https://img.icons8.com/bubbles/100/user.png";
-
-            let html = "";
-            res.rakan.forEach(r => {
-                html += `
-                <div class="col-6 col-md-3">
-                    <div class="rakan-card" onclick="openAssessment('${r.ic}', '${r.nama}')">
-                        <img src="${r.gambar}" class="profile-img-large mb-2" onerror="this.src='https://img.icons8.com/bubbles/100/name.png'">
-                        <p class="small fw-bold mb-0 text-truncate">${r.nama}</p>
-                        <span class="badge bg-info" style="font-size:0.7rem">Sedia Dinilai</span>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('senaraiRakan').innerHTML = html;
-        }
-
-        function openAssessment(ic, nama) {
-            selectedTarget = ic;
-            document.getElementById('targetName').innerText = nama;
-            document.getElementById('assessmentForm').classList.remove('d-none');
-            document.getElementById('assessmentForm').scrollIntoView({behavior: "smooth"});
-            updateChart();
-        }
-
-        function updateChart() {
-            const m = [
-                document.getElementById('m1').value,
-                document.getElementById('m2').value,
-                document.getElementById('m3').value,
-                document.getElementById('m4').value,
-                document.getElementById('m5').value
-            ];
-            m.forEach((val, i) => document.getElementById(`v${i+1}`).innerText = val);
-
-            const ctx = document.getElementById('spiderChart').getContext('2d');
-            if (myChart) myChart.destroy();
-            myChart = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: ['Kepimpinan', 'Kerjasama', 'Komunikasi', 'Komitmen', 'Sahsiah'],
-                    datasets: [{
-                        label: 'Skala Penilaian',
-                        data: m,
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        borderColor: 'rgb(54, 162, 235)',
-                        pointBackgroundColor: 'rgb(54, 162, 235)',
-                    }]
-                },
-                options: { scales: { r: { min: 0, max: 5, ticks: { stepSize: 1 } } } }
-            });
-        }
-
-        function hantarMarkah() {
-            const btn = document.getElementById('btnSubmit');
-            btn.disabled = true; btn.innerText = "Menghantar...";
-            
-            const payload = {
-                reviewer: currentUser.ic, // Perlu ditambah dalam backend
-                target: selectedTarget,
-                siri: "1", // Boleh dibuat dinamik
-                kumpulan: currentUser.kumpulan,
-                m1: document.getElementById('m1').value,
-                m2: document.getElementById('m2').value,
-                m3: document.getElementById('m3').value,
-                m4: document.getElementById('m4').value,
-                m5: document.getElementById('m5').value
+        function handleLogin(e) {
+            e.preventDefault(); toggleLoader(true);
+            const body = {
+                action: currentMode === 'student' ? "login_student" : "login_lecturer",
+                no_kp: document.getElementById('user-id').value,
+                email: document.getElementById('user-id').value,
+                password: document.getElementById('user-pass').value
             };
-
-            google.script.run.withSuccessHandler(res => {
-                alert(res);
-                document.getElementById('assessmentForm').classList.add('d-none');
-                btn.disabled = false; btn.innerText = "Hantar Penilaian";
-            }).simpanMarkahPeer(payload);
+            fetch(API, { method: "POST", body: JSON.stringify(body) }).then(r => r.json()).then(res => {
+                toggleLoader(false);
+                if(res.result === "success") {
+                    if(currentMode === 'student') { user = res.data; initStudent(); }
+                    else { alert("Mod Pensyarah Aktif: " + res.nama); }
+                } else alert(res.message);
+            });
         }
 
-        function closeForm() { document.getElementById('assessmentForm').classList.add('d-none'); }
+        function uploadImage(input) {
+            if (input.files && input.files[0]) {
+                toggleLoader(true);
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('display-img').src = e.target.result;
+                    google.script.run.withSuccessHandler(res => {
+                        toggleLoader(false);
+                        alert("Gambar Berjaya Disimpan!");
+                    }).uploadPhoto(e.target.result, `PDPP_${user.id}.jpg`, user.id);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function initStudent() {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-student').classList.remove('hidden');
+            document.getElementById('std-name').innerText = user.nama;
+            document.getElementById('std-meta').innerText = `SIRI: ${user.siri} | KUMPULAN: ${user.nama_kump}${user.no_kump}`;
+            if(user.url_gambar) document.getElementById('display-img').src = user.url_gambar;
+            loadTeammates();
+        }
+
+        function loadTeammates() {
+            fetch(API, { method: "POST", body: JSON.stringify({ action:"get_teammates", reviewer_id:user.id, siri:user.siri, nama_kump:user.nama_kump }) })
+            .then(r => r.json()).then(res => {
+                teammates = res.data;
+                const grid = document.getElementById('teammates-grid');
+                grid.innerHTML = teammates.map(t => `
+                    <div class="bg-white/50 p-4 rounded-3xl border border-white">
+                        <div class="flex items-center gap-3 mb-4">
+                            <img src="${t.url_gambar || 'https://via.placeholder.com/40'}" class="w-10 h-10 rounded-xl object-cover">
+                            <p class="text-[10px] font-black uppercase text-blue-900">${t.nama}</p>
+                        </div>
+                        <div class="grid grid-cols-5 gap-1">
+                            ${[1,2,3,4,5].map(i => `<input type="number" id="m${i}_${t.id}" min="1" max="5" class="w-full p-2 rounded-xl text-center text-xs font-bold bg-white border" placeholder="K${i}">`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+                if(teammates.length > 0) document.getElementById('btn-submit-peer').classList.remove('hidden');
+            });
+        }
+
+        function toggleLoader(s) { document.getElementById('loader').classList.toggle('hidden', !s); }
     </script>
 </body>
 </html>
