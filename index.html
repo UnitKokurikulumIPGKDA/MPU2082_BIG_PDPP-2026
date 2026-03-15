@@ -14,7 +14,8 @@
         .btn-gold { background: #ffcc00; color: #001f3f; font-weight: 800; border-radius: 15px; transition: 0.3s; }
         .btn-gold:hover { background: #e6b800; transform: translateY(-2px); }
         .input-gold { background: rgba(255, 204, 0, 0.1); border: 1px solid #ffcc00; color: #ffcc00; border-radius: 12px; padding: 12px; font-weight: 700; outline: none; width: 100%; }
-        .avatar-main { width: 140px; height: 180px; border-radius: 20px; object-fit: cover; border: 4px solid #ffcc00; background: #001f3f; }
+        .avatar-main { width: 150px; height: 200px; border-radius: 20px; object-fit: cover; border: 4px solid #ffcc00; background: #001a35; }
+        .avatar-peer { width: 45px; height: 45px; border-radius: 12px; object-fit: cover; border: 1px solid #ffcc00; }
         .hidden { display: none !important; }
         .loader { border-top-color: #ffcc00; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -24,13 +25,13 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
-    <div id="loader" class="fixed inset-0 bg-black/70 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-md">
-        <div class="loader rounded-full border-4 h-12 w-12 mb-4 border-gray-600"></div>
-        <p class="text-[#ffcc00] font-black animate-pulse uppercase tracking-widest text-xs">Menghubungkan Server...</p>
+    <div id="loader" class="fixed inset-0 bg-black/80 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-md">
+        <div class="loader rounded-full border-4 h-12 w-12 mb-4 border-gray-700"></div>
+        <p class="text-[#ffcc00] font-black animate-pulse uppercase tracking-widest text-[10px]">Menyambung Pangkalan Data...</p>
     </div>
 
     <div id="view-login" class="glass w-full max-w-md p-10 text-center">
-        <h1 class="text-4xl font-black text-[#ffcc00] uppercase mb-8 italic tracking-tighter">e-BIG PDPP</h1>
+        <h1 class="text-4xl font-black text-[#ffcc00] uppercase mb-8 italic italic tracking-tighter">e-BIG PDPP</h1>
         <div class="flex bg-[#001f3f] rounded-2xl mb-8 p-1 border border-[#ffcc00]/30">
             <button onclick="setMode('student')" id="m-std" class="flex-1 py-3 text-xs font-black rounded-xl bg-[#ffcc00] text-[#001f3f]">PELAJAR</button>
             <button onclick="setMode('lecturer')" id="m-lec" class="flex-1 py-3 text-xs font-black rounded-xl text-[#ffcc00]">PENSYARAH</button>
@@ -38,36 +39,41 @@
         <form onsubmit="handleLogin(event)" class="space-y-6">
             <input type="text" id="login-id" class="input-gold text-center text-lg" placeholder="NO. KAD PENGENALAN" required>
             <div id="pass-field" class="hidden"><input type="password" id="login-pass" class="input-gold text-center" placeholder="KATA LALUAN"></div>
-            <button class="w-full btn-gold py-5 shadow-2xl uppercase">MASUK SEKARANG</button>
+            <button class="w-full btn-gold py-5 shadow-2xl uppercase tracking-widest">MASUK SISTEM</button>
         </form>
-        <p class="text-[9px] text-gray-500 mt-10 font-bold uppercase">Unit Kokurikulum IPGKDA | 2026</p>
+        <p class="text-[9px] text-gray-500 mt-10 font-bold uppercase italic">Unit Kokurikulum IPGKDA | 2026</p>
     </div>
 
     <div id="view-student" class="glass w-full max-w-6xl p-8 hidden animate-fade-in">
         <div class="flex justify-between items-center border-b border-[#ffcc00]/20 pb-6 mb-8">
             <div><h2 id="std-name" class="text-2xl font-black text-[#ffcc00] uppercase">...</h2><p id="std-meta" class="text-white/60 text-[10px] font-bold mt-1"></p></div>
-            <button onclick="location.reload()" class="bg-red-900 text-white font-black text-[10px] px-6 py-2 rounded-xl border border-red-500 uppercase">LOGOUT</button>
+            <button onclick="location.reload()" class="bg-red-900 text-white font-black text-[10px] px-6 py-2 rounded-xl border border-red-500 uppercase">KELUAR</button>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div class="flex flex-col items-center lg:border-r lg:border-[#ffcc00]/20 lg:pr-10">
-                <img id="std-img" class="avatar-main cursor-pointer" src="https://via.placeholder.com/140x180?text=UPLOAD+FOTO" onclick="document.getElementById('file-input').click()">
+                <div class="relative group">
+                    <img id="std-img" class="avatar-main shadow-2xl" src="https://img.icons8.com/bubbles/200/user.png">
+                    <button onclick="document.getElementById('file-input').click()" class="absolute bottom-2 right-2 bg-[#ffcc00] text-[#001f3f] w-10 h-10 rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
                 <input type="file" id="file-input" class="hidden" accept="image/*" onchange="uploadPhoto(this)">
                 
-                <h3 class="section-header w-full text-left mt-8">Profil Maklumat</h3>
-                <div class="space-y-4 w-full mt-4">
-                    <input type="text" id="p-kump" class="input-gold text-xs" placeholder="KUMPULAN (Cth: ELIT)">
-                    <input type="number" id="p-no" class="input-gold text-xs" placeholder="NO. AHLI (Cth: 1)">
-                    <input type="text" id="p-alahan" class="input-gold text-xs" placeholder="ALAHAN KESIHATAN">
-                    <input type="text" id="p-tel" class="input-gold text-xs" placeholder="NO TEL WARIS">
-                    <button onclick="saveProfile()" class="w-full btn-gold py-3 text-xs uppercase shadow-lg">SIMPAN PROFIL</button>
+                <h3 class="section-header w-full text-left mt-10">Maklumat Profil</h3>
+                <div class="space-y-3 w-full mt-4">
+                    <input type="text" id="p-kump" class="input-gold text-xs" placeholder="NAMA KUMPULAN">
+                    <input type="number" id="p-no" class="input-gold text-xs" placeholder="NO. AHLI DALAM KUMPULAN">
+                    <input type="text" id="p-alahan" class="input-gold text-xs" placeholder="ALAHAN / KESIHATAN">
+                    <input type="text" id="p-tel" class="input-gold text-xs" placeholder="NO. TEL WARIS">
+                    <button onclick="saveProfile()" class="w-full btn-gold py-4 text-xs uppercase shadow-lg mt-2 font-black">SIMPAN MAKLUMAT</button>
                 </div>
             </div>
 
             <div class="lg:col-span-2 space-y-6">
                 <h3 class="section-header">Penilaian Rakan Sekumpulan</h3>
                 <div id="teammates-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                <button id="btn-submit-peer" onclick="submitPeer()" class="hidden w-full btn-gold py-5 shadow-2xl mt-6 uppercase">HANTAR SEMUA PENILAIAN</button>
+                <button id="btn-submit-peer" onclick="submitPeer()" class="hidden w-full btn-gold py-5 shadow-2xl mt-6 uppercase tracking-widest">HANTAR PENILAIAN RAKAN</button>
             </div>
         </div>
     </div>
@@ -78,38 +84,38 @@
             <div class="flex gap-2">
                 <button onclick="switchLecTab('entry')" id="btn-tab-entry" class="bg-[#ffcc00] text-[#001f3f] px-4 py-2 rounded-lg font-black text-[10px] uppercase">ISI MARKAH</button>
                 <button onclick="switchLecTab('summary')" id="btn-tab-sum" class="bg-[#001f3f] text-[#ffcc00] px-4 py-2 rounded-lg font-black text-[10px] uppercase border border-[#ffcc00]">RUMUSAN</button>
-                <button onclick="location.reload()" class="bg-red-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase">OUT</button>
+                <button onclick="location.reload()" class="bg-red-900 text-white px-4 py-2 rounded-lg font-black text-[10px] uppercase">KELUAR</button>
             </div>
         </div>
 
         <div id="lec-entry" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="bg-[#001f3f] p-6 rounded-[30px] border border-[#ffcc00]/20 h-fit">
+            <div class="bg-[#001f3f] p-6 rounded-[30px] border border-[#ffcc00]/20 h-fit text-center">
                 <select id="sel-class" onchange="filterStudents()" class="input-gold text-xs mb-3"><option value="">SEMUA KELAS</option></select>
-                <select id="sel-student" class="input-gold text-xs mb-4"><option value="">-- PILIH NAMA --</option></select>
-                <button onclick="loadGradingForm()" class="w-full btn-gold py-4 uppercase mb-6">MULA MENILAI</button>
-                <canvas id="radarChart"></canvas>
+                <select id="sel-student" class="input-gold text-xs mb-4"><option value="">-- PILIH NAMA PELAJAR --</option></select>
+                <button onclick="loadGradingForm()" class="w-full btn-gold py-4 uppercase mb-6 font-black">MULA MENILAI</button>
+                <div class="bg-white p-2 rounded-2xl mt-4"><canvas id="radarChart"></canvas></div>
             </div>
             <div id="grading-area" class="lg:col-span-2 hidden">
-                <div class="bg-[#001f3f] p-8 rounded-[30px] border border-[#ffcc00]/20 space-y-8">
-                    <div><h3 class="section-header">HPK3: Amali II (25%)</h3><div class="grid grid-cols-5 gap-2 mt-4" id="hpk3-grid"></div></div>
-                    <div><h3 class="section-header">HP8: Kepimpinan (45%)</h3><div class="grid grid-cols-4 gap-2 mt-4" id="hp8-grid"></div></div>
-                    <button onclick="submitHpk()" class="w-full btn-gold py-5 mt-10 shadow-2xl uppercase">SAHKAN PEMARKAHAN HPK</button>
+                <div class="bg-[#001f3f] p-8 rounded-[30px] border border-[#ffcc00]/20 space-y-8 shadow-2xl">
+                    <div><h3 class="section-header">HPK3: Amali II (Pecahan 25%)</h3><div class="grid grid-cols-5 gap-2 mt-4" id="hpk3-grid"></div></div>
+                    <div><h3 class="section-header">HP8: Kepimpinan & Profesionalisme (45%)</h3><div class="grid grid-cols-4 gap-2 mt-4" id="hp8-grid"></div></div>
+                    <button onclick="submitHpk()" class="w-full btn-gold py-6 mt-10 shadow-2xl uppercase font-black text-lg">SAHKAN & SIMPAN MARKAH PDPP</button>
                 </div>
             </div>
         </div>
 
         <div id="lec-summary" class="hidden space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-[#ffcc00] text-[#001f3f] p-8 rounded-[30px] shadow-2xl text-center"><h4 class="text-5xl font-black" id="stat-sd">0.0</h4><p class="text-[10px] font-black uppercase mt-2">Standard Deviation</p></div>
-                <div class="bg-[#001f3f] p-8 rounded-[30px] border border-[#ffcc00]/30 h-48"><canvas id="bellChart"></canvas></div>
+                <div class="bg-[#ffcc00] text-[#001f3f] p-8 rounded-[30px] shadow-2xl text-center"><h4 class="text-5xl font-black" id="stat-sd">0.0</h4><p class="text-[10px] font-black uppercase mt-2 italic">Standard Deviation</p></div>
+                <div class="bg-[#001f3f] p-4 rounded-[30px] border border-[#ffcc00]/30 h-48 bg-white"><canvas id="bellChart"></canvas></div>
                 <div class="bg-[#001f3f] p-8 rounded-[30px] border border-[#ffcc00]/30 text-center flex flex-col justify-center">
-                    <p class="text-[10px] text-[#ffcc00] font-black mb-4 uppercase italic">Distribusi Gred</p>
+                    <p class="text-[10px] text-[#ffcc00] font-black mb-4 uppercase italic">TABURAN GRED</p>
                     <div class="flex justify-around font-black"><div class="text-green-500">A:<span id="c-a">0</span></div><div class="text-blue-400">B:<span id="c-b">0</span></div><div class="text-orange-400">C:<span id="c-c">0</span></div><div class="text-red-500">D:<span id="c-d">0</span></div></div>
                 </div>
             </div>
             <div class="bg-[#001f3f] rounded-[30px] border border-[#ffcc00]/20 overflow-hidden">
                 <table class="w-full text-center text-xs">
-                    <thead class="bg-[#ffcc00] text-[#001f3f] font-black uppercase"><tr class="border-b border-[#ffcc00]"><th class="p-4">PELAJAR</th><th>KUMPULAN</th><th>TOTAL</th><th>GRED</th></tr></thead>
+                    <thead class="bg-[#ffcc00] text-[#001f3f] font-black uppercase"><tr class="border-b border-[#ffcc00]"><th class="p-4 text-left pl-10">PELAJAR</th><th>KUMPULAN</th><th>MARKAH (70%)</th><th>GRED</th></tr></thead>
                     <tbody id="summary-body" class="divide-y divide-[#ffcc00]/10"></tbody>
                 </table>
             </div>
@@ -117,8 +123,9 @@
     </div>
 
     <script>
-        const API = "https://script.google.com/macros/s/AKfycbyBPac4txPie0508zeoZOJdCRxqXlZmnftWLW7JWf2Vt8728r9eZu4cJ36f9bh9kAnzoQ/exec";
+        const API = "https://script.google.com/macros/s/AKfycbyBPac4txPie0508zeoZOJdCRxqXlZmnftWLW7JWf2Vt8728r9eZu4cJ36f9bh9kAnzoQ/exec"; 
         let mode = 'student', user = null, students = [], myChart = null, radarChart = null;
+        const DEFAULT_IMG = "https://img.icons8.com/bubbles/200/user.png";
 
         function setMode(m) {
             mode = m;
@@ -129,8 +136,8 @@
 
         function handleLogin(e) {
             e.preventDefault(); toggleLoader(true);
-            const body = { action: mode === 'student' ? "login_student" : "login_lecturer", no_kp: document.getElementById('login-id').value, email: document.getElementById('login-id').value, password: document.getElementById('login-pass').value };
-            fetch(API, { method: "POST", body: JSON.stringify(body) }).then(r => r.json()).then(res => {
+            const b = { action: mode === 'student' ? "login_student" : "login_lecturer", no_kp: document.getElementById('login-id').value, email: document.getElementById('login-id').value, password: document.getElementById('login-pass').value };
+            fetch(API, { method: "POST", body: JSON.stringify(b) }).then(r => r.json()).then(res => {
                 toggleLoader(false);
                 if (res.result === "success") {
                     if (mode === 'student') { user = res.data; initStudent(); }
@@ -143,12 +150,12 @@
             document.getElementById('view-login').classList.add('hidden');
             document.getElementById('view-student').classList.remove('hidden');
             document.getElementById('std-name').innerText = user.nama;
-            document.getElementById('std-meta').innerText = `ID: ${user.id} | KELAS: ${user.kelas} | NO. KP: ${user.no_kp}`;
+            document.getElementById('std-meta').innerText = `ID: ${user.id} | KELAS: ${user.kelas} | KP: ${user.no_kp}`;
             document.getElementById('p-kump').value = user.nama_kump || "";
             document.getElementById('p-no').value = user.no_kump || "";
             document.getElementById('p-alahan').value = user.alahan || "";
             document.getElementById('p-tel').value = user.tel_waris || "";
-            if(user.url_gambar) document.getElementById('std-img').src = user.url_gambar;
+            document.getElementById('std-img').src = user.url_gambar && user.url_gambar.length > 10 ? user.url_gambar : DEFAULT_IMG;
             if(user.nama_kump) loadTeammates();
         }
 
@@ -157,7 +164,7 @@
             document.getElementById('view-lecturer').classList.remove('hidden');
             document.getElementById('lec-name').innerText = res.nama;
             students = res.students_list;
-            const cls = [...new Set(students.map(s => s.kelas))];
+            const cls = [...new Set(students.map(s => s.kelas))].filter(Boolean).sort();
             cls.forEach(c => document.getElementById('sel-class').innerHTML += `<option value="${c}">${c}</option>`);
             filterStudents();
         }
@@ -165,8 +172,8 @@
         function filterStudents() {
             const c = document.getElementById('sel-class').value;
             const sel = document.getElementById('sel-student');
-            sel.innerHTML = '<option value="">-- PILIH NAMA --</option>';
-            students.filter(s => !c || s.kelas === c).forEach(s => sel.innerHTML += `<option value="${s.id}">${s.kump} | ${s.nama}</option>`);
+            sel.innerHTML = '<option value="">-- PILIH NAMA PELAJAR --</option>';
+            students.filter(s => !c || s.kelas === c).sort((a,b)=>a.nama.localeCompare(b.nama)).forEach(s => sel.innerHTML += `<option value="${s.id}">${s.kump || 'TIADA KUMP'} | ${s.nama}</option>`);
         }
 
         function loadGradingForm() {
@@ -175,20 +182,16 @@
                 toggleLoader(false);
                 document.getElementById('grading-area').classList.remove('hidden');
                 updateRadar(res.peer_averages);
-                renderGrids(res.existing);
+                const h3 = document.getElementById('hpk3-grid'), h8 = document.getElementById('hp8-grid');
+                h3.innerHTML = ""; h8.innerHTML = "";
+                for(let i=1; i<=5; i++) h3.innerHTML += `<div><label class="text-[8px] font-black text-[#ffcc00] uppercase">K${i}(5)</label><input type="number" id="h_k${i}" value="${res.existing[i-1]}" class="input-mark"></div>`;
+                for(let i=6; i<=9; i++) h8.innerHTML += `<div><label class="text-[8px] font-black text-[#ffcc00] uppercase">K${i}</label><input type="number" id="h_k${i}" value="${res.existing[i-1]}" class="input-mark"></div>`;
             });
-        }
-
-        function renderGrids(ex) {
-            const h3 = document.getElementById('hpk3-grid'), h8 = document.getElementById('hp8-grid');
-            h3.innerHTML = ""; h8.innerHTML = "";
-            for(let i=1; i<=5; i++) h3.innerHTML += `<div><label class="text-[8px] font-black text-[#ffcc00] uppercase">K${i}(5)</label><input type="number" id="h_k${i}" value="${ex[i-1]}" class="input-mark" max="5"></div>`;
-            for(let i=6; i<=9; i++) h8.innerHTML += `<div><label class="text-[8px] font-black text-[#ffcc00] uppercase">K${i}</label><input type="number" id="h_k${i}" value="${ex[i-1]}" class="input-mark"></div>`;
         }
 
         function updateRadar(data) {
             const ctx = document.getElementById('radarChart').getContext('2d'); if(radarChart) radarChart.destroy();
-            radarChart = new Chart(ctx, { type: 'radar', data: { labels: ['Pimpin', 'Idea', 'T/Jawab', 'Kualiti', 'Adab'], datasets: [{ data: data, backgroundColor: 'rgba(255, 204, 0, 0.2)', borderColor: '#ffcc00', pointBackgroundColor: '#ffcc00' }] }, options: { scales: { r: { min: 0, max: 5, grid: { color: 'rgba(255,204,0,0.1)' }, ticks: { display: false } } }, plugins: { legend: { display: false } } } });
+            radarChart = new Chart(ctx, { type: 'radar', data: { labels: ['Pimpin', 'Idea', 'T/Jawab', 'Kualiti', 'Adab'], datasets: [{ data: data, backgroundColor: 'rgba(30, 58, 138, 0.2)', borderColor: '#1e3a8a', pointBackgroundColor: '#1e3a8a' }] }, options: { scales: { r: { min: 0, max: 5, ticks: { display: false } } }, plugins: { legend: { display: false } } } });
         }
 
         function submitHpk() {
@@ -208,7 +211,7 @@
             toggleLoader(true); fetch(API, { method: "POST", body: JSON.stringify({ action: "get_summary_data", kelas: "SEMUA" }) }).then(r => r.json()).then(res => {
                 toggleLoader(false);
                 const b = document.getElementById('summary-body'); b.innerHTML = "";
-                res.data.forEach(r => b.innerHTML += `<tr class="hover:bg-[#ffcc00]/5"><td>${r.nama}</td><td>${r.kump}</td><td>${r.total}</td><td>${r.gred}</td></tr>`);
+                res.data.sort((a,b)=>b.total - a.total).forEach(r => b.innerHTML += `<tr class="hover:bg-[#ffcc00]/5 border-b border-[#ffcc00]/5"><td>${r.nama}</td><td>${r.kump}</td><td>${r.total}</td><td class="font-black text-[#ffcc00]">${r.gred}</td></tr>`);
                 document.getElementById('stat-sd').innerText = res.stats.sd;
                 document.getElementById('c-a').innerText = res.stats.counts.A; document.getElementById('c-b').innerText = res.stats.counts.B; document.getElementById('c-c').innerText = res.stats.counts.C; document.getElementById('c-d').innerText = res.stats.counts.D;
                 updateBell(res.stats.counts);
@@ -217,13 +220,42 @@
 
         function updateBell(c) {
             const ctx = document.getElementById('bellChart').getContext('2d'); if(myChart) myChart.destroy();
-            myChart = new Chart(ctx, { type: 'line', data: { labels: ['D','C','B','A'], datasets: [{ data: [c.D, c.C, c.B, c.A], borderColor: '#ffcc00', tension: 0.4, fill: true, backgroundColor: 'rgba(255, 204, 0, 0.1)' }] }, options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#ffcc00' } } } } });
+            myChart = new Chart(ctx, { type: 'line', data: { labels: ['D','C','B','A'], datasets: [{ data: [c.D, c.C, c.B, c.A], borderColor: '#001f3f', tension: 0.4, fill: true, backgroundColor: 'rgba(0, 31, 63, 0.1)' }] }, options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } } });
         }
 
-        function saveProfile() { toggleLoader(true); const b = { action: "update_student_info", id: user.id, nama_kump: document.getElementById('p-kump').value, no_kump: document.getElementById('p-no').value, alahan: document.getElementById('p-alahan').value, tel_waris: document.getElementById('p-tel').value }; fetch(API, { method: "POST", body: JSON.stringify(b) }).then(r => r.json()).then(res => { toggleLoader(false); alert(res.message); location.reload(); }); }
-        function uploadPhoto(i) { if(i.files && i.files[0]) { toggleLoader(true); const r = new FileReader(); r.onload = function(e) { google.script.run.withSuccessHandler(res => { toggleLoader(false); alert("Gambar Berjaya!"); location.reload(); }).uploadPhoto(e.target.result, `PDPP_${user.id}.jpg`, user.id); }; r.readAsDataURL(i.files[0]); } }
-        function loadTeammates() { fetch(API, { method: "POST", body: JSON.stringify({ action: "get_teammates", reviewer_id: user.id, nama_kump: user.nama_kump }) }).then(r => r.json()).then(res => { teammates = res.data; const l = document.getElementById('teammates-list'); l.innerHTML = teammates.map(t => `<div class="bg-[#001f3f] p-5 rounded-3xl border border-[#ffcc00]/20 flex flex-col gap-4"><div class="flex items-center gap-3"><img src="${t.url_gambar}" class="w-10 h-10 rounded-xl border border-[#ffcc00]"><p class="text-[10px] font-black uppercase text-[#ffcc00]">${t.nama}</p></div><div class="grid grid-cols-5 gap-1">${[1,2,3,4,5].map(i => `<input type="number" id="m${i}_${t.id}" min="1" max="5" class="input-mark text-xs" placeholder="K${i}">`).join('')}</div></div>`).join(''); if(teammates.length > 0) document.getElementById('btn-submit-peer').classList.remove('hidden'); }); }
-        function submitPeer() { toggleLoader(true); const r = teammates.map(t => ({ target_id: t.id, m1: document.getElementById(`m1_${t.id}`).value || 0, m2: document.getElementById(`m2_${t.id}`).value || 0, m3: document.getElementById(`m3_${t.id}`).value || 0, m4: document.getElementById(`m4_${t.id}`).value || 0, m5: document.getElementById(`m5_${t.id}`).value || 0 })); fetch(API, { method: "POST", body: JSON.stringify({ action: "submit_bulk_peer", reviewer_id: user.id, nama_kump: user.nama_kump, reviews: r }) }).then(r => r.json()).then(res => { toggleLoader(false); alert(res.message); location.reload(); }); }
+        function saveProfile() { 
+            toggleLoader(true); 
+            const b = { action: "update_student_info", id: user.id, nama_kump: document.getElementById('p-kump').value, no_kump: document.getElementById('p-no').value, alahan: document.getElementById('p-alahan').value, ubat: "Tiada", tel_waris: document.getElementById('p-tel').value }; 
+            fetch(API, { method: "POST", body: JSON.stringify(b) }).then(r => r.json()).then(res => { toggleLoader(false); alert("Profil Disimpan!"); location.reload(); }); 
+        }
+
+        function uploadPhoto(i) { 
+            if(i.files && i.files[0]) { 
+                toggleLoader(true); 
+                const r = new FileReader(); 
+                r.onload = function(e) { 
+                    google.script.run.withSuccessHandler(res => { toggleLoader(false); alert("Gambar berjaya dikemaskini!"); location.reload(); }).uploadPhoto(e.target.result, `PDPP_${user.id}.jpg`, user.id); 
+                }; 
+                r.readAsDataURL(i.files[0]); 
+            } 
+        }
+
+        function loadTeammates() { 
+            fetch(API, { method: "POST", body: JSON.stringify({ action: "get_teammates", reviewer_id: user.id, nama_kump: user.nama_kump }) })
+            .then(r => r.json()).then(res => { 
+                teammates = res.data; 
+                const l = document.getElementById('teammates-list'); 
+                l.innerHTML = teammates.map(t => `<div class="bg-[#001f3f] p-4 rounded-2xl border border-[#ffcc00]/20"><div class="flex items-center gap-3 mb-3"><img src="${t.url_gambar && t.url_gambar.length > 10 ? t.url_gambar : DEFAULT_IMG}" class="avatar-peer"><p class="text-[10px] font-black uppercase text-[#ffcc00]">${t.nama}</p></div><div class="grid grid-cols-5 gap-1">${[1,2,3,4,5].map(i => `<input type="number" id="m${i}_${t.id}" min="1" max="5" class="input-mark text-xs" placeholder="K${i}">`).join('')}</div></div>`).join(''); 
+                if(teammates.length > 0) document.getElementById('btn-submit-peer').classList.remove('hidden'); 
+            }); 
+        }
+
+        function submitPeer() { 
+            toggleLoader(true); 
+            const r = teammates.map(t => ({ target_id: t.id, m1: document.getElementById(`m1_${t.id}`).value || 0, m2: document.getElementById(`m2_${t.id}`).value || 0, m3: document.getElementById(`m3_${t.id}`).value || 0, m4: document.getElementById(`m4_${t.id}`).value || 0, m5: document.getElementById(`m5_${t.id}`).value || 0 })); 
+            fetch(API, { method: "POST", body: JSON.stringify({ action: "submit_bulk_peer", reviewer_id: user.id, nama_kump: user.nama_kump, reviews: r }) })
+            .then(r => r.json()).then(res => { toggleLoader(false); alert("Penilaian Dihantar!"); location.reload(); }); 
+        }
         function toggleLoader(s) { document.getElementById('loader').classList.toggle('hidden', !s); }
     </script>
 </body>
