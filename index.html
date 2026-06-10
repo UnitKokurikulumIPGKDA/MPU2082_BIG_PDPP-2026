@@ -1,1429 +1,1176 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistem Pemarkahan IPG — MPU2082</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Portal Pelajar — IPG</title>
 <style>
+/* ── RESET & BASE ───────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --primary:#185FA5; --primary-light:#E6F1FB; --primary-mid:#378ADD;
-  --success:#3B6D11; --success-light:#EAF3DE;
-  --warning:#854F0B; --warning-light:#FAEEDA;
-  --danger:#A32D2D;  --danger-light:#FCEBEB;
-  --purple:#534AB7;  --purple-light:#EEEDFE;
-  --teal:#0F6E56;    --teal-light:#E1F5EE;
-  --gray-100:#F1EFE8; --gray-200:#D3D1C7;
-  --gray-400:#888780; --gray-600:#5F5E5A;
-  --text-primary:#1a1a1a; --text-secondary:#5F5E5A;
-  --bg:#f7f6f3; --bg-card:#ffffff; --border:#e0ded8;
-  --radius:8px; --radius-lg:12px;
+  --primary:       #185FA5;
+  --primary-light: #E6F1FB;
+  --primary-dark:  #0C447C;
+  --success:       #3B6D11;
+  --success-light: #EAF3DE;
+  --warning:       #854F0B;
+  --warning-light: #FAEEDA;
+  --danger:        #A32D2D;
+  --danger-light:  #FCEBEB;
+  --bg:            #f7f6f3;
+  --card:          #ffffff;
+  --border:        #d3d1c7;
+  --border-light:  #eceae5;
+  --text:          #2C2C2A;
+  --text-muted:    #5F5E5A;
+  --text-faint:    #888780;
+  --radius:        8px;
+  --radius-lg:     12px;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text-primary);min-height:100vh;font-size:14px;line-height:1.6}
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+a { color: var(--primary); text-decoration: none; }
 
-/* ── LOADING OVERLAY ── */
-#loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
-.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.loading-text{font-size:13px;color:var(--text-secondary)}
+/* ── LAYOUT ─────────────────────────────────────── */
+#app       { display: flex; flex-direction: column; min-height: 100vh; }
+#topbar    { position: fixed; top:0; left:0; right:0; height:52px; z-index:100;
+             background: var(--primary); color:#fff; display:flex;
+             align-items:center; justify-content:space-between; padding:0 24px; }
+#sidebar   { position:fixed; top:52px; left:0; bottom:0; width:230px; z-index:90;
+             background:#fff; border-right:1px solid var(--border);
+             overflow-y:auto; padding:12px 0; }
+#main      { margin-left:230px; margin-top:52px; padding:28px 32px;
+             flex:1; min-height:calc(100vh - 52px); }
 
-/* ── AUTH ── */
-#screen-auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.auth-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:100%;max-width:400px}
-.auth-logo{text-align:center;margin-bottom:22px}
-.auth-logo-icon{width:52px;height:52px;border-radius:12px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
-.auth-logo h1{font-size:17px;font-weight:600}
-.auth-logo p{font-size:12px;color:var(--text-secondary);margin-top:2px}
-.auth-tabs{display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:18px}
-.auth-tab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;background:transparent;border:none;color:var(--text-secondary);transition:all .15s}
-.auth-tab.active{background:var(--primary);color:#fff}
+/* ── TOPBAR ─────────────────────────────────────── */
+.tb-brand  { line-height:1.2; }
+.tb-name   { font-size:15px; font-weight:600; letter-spacing:.02em; }
+.tb-inst   { font-size:11px; opacity:.7; }
+.tb-right  { display:flex; align-items:center; gap:10px; }
+.tb-badge  { font-size:11px; opacity:.8; background:rgba(255,255,255,.15);
+             padding:3px 10px; border-radius:20px; }
+.avatar    { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,.2);
+             display:flex; align-items:center; justify-content:center;
+             font-weight:700; font-size:12px; flex-shrink:0; }
 
-/* ── APP SHELL ── */
-#app{display:flex;min-height:100vh}
-.sidebar{width:224px;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100}
-.sb-brand{padding:16px;border-bottom:1px solid var(--border)}
-.sb-brand h1{font-size:13px;font-weight:600;color:var(--primary);line-height:1.3}
-.sb-brand p{font-size:11px;color:var(--text-secondary);margin-top:2px}
-.sb-user{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
-.sb-user-name{font-size:12px;font-weight:600}
-.sb-user-role{font-size:11px;color:var(--text-secondary)}
-.sb-nav{flex:1;padding:6px;overflow-y:auto}
-.nav-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--text-secondary);transition:background .15s,color .15s;margin-bottom:1px}
-.nav-item:hover{background:var(--gray-100);color:var(--text-primary)}
-.nav-item.active{background:var(--primary-light);color:var(--primary);font-weight:500}
-.nav-item svg{width:15px;height:15px;flex-shrink:0}
-.sb-footer{padding:10px 14px;border-top:1px solid var(--border)}
-.btn-logout{width:100%;padding:7px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--text-secondary);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
-.btn-logout:hover{background:var(--danger-light);color:var(--danger)}
+/* ── SIDEBAR NAV ─────────────────────────────────── */
+.nav-section { font-size:10.5px; font-weight:700; color:var(--text-faint);
+               padding:14px 18px 5px; text-transform:uppercase; letter-spacing:.08em; }
+.nav-item    { display:flex; align-items:center; gap:9px; padding:9px 18px;
+               cursor:pointer; font-size:13px; color:var(--text-muted);
+               border-left:3px solid transparent; transition:all .15s; }
+.nav-item:hover   { background:var(--primary-light); color:var(--primary); }
+.nav-item.active  { background:var(--primary-light); color:var(--primary);
+                    border-left-color:var(--primary); font-weight:600; }
+.nav-item .nav-icon { font-size:15px; width:18px; text-align:center; }
+.nav-sub     { padding-left:42px; font-size:12px; }
 
-/* ── MAIN ── */
-.main{margin-left:224px;flex:1;min-height:100vh;display:flex;flex-direction:column}
-.topbar{background:var(--bg-card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
-.topbar h2{font-size:15px;font-weight:600}
-.content{padding:22px;flex:1}
+/* ── CARDS ──────────────────────────────────────── */
+.card { background:#fff; border:1px solid var(--border);
+        border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:18px; }
+.card-title { font-size:14px; font-weight:700; color:var(--text);
+              margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-light); }
 
-/* ── COMPONENTS ── */
-.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;margin-bottom:14px}
-.card-p0{padding:0}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.card-title{font-size:14px;font-weight:600}
-.card-sub{font-size:12px;color:var(--text-secondary);margin-top:2px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px}
-.stat-card .lbl{font-size:10px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
-.stat-card .val{font-size:22px;font-weight:700;color:var(--text-primary)}
-.stat-card .sub{font-size:11px;color:var(--text-secondary);margin-top:2px}
-.form-group{margin-bottom:12px}
-.form-group label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:4px}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg-card);color:var(--text-primary);outline:none;transition:border-color .15s,box-shadow .15s}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary-mid);box-shadow:0 0 0 3px rgba(55,138,221,.1)}
-.btn{padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;background:var(--bg-card);color:var(--text-primary)}
-.btn:hover{background:var(--gray-100)}
-.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
-.btn-primary:hover{background:#0d4a8a;border-color:#0d4a8a;color:#fff}
-.btn-success{background:var(--success);color:#fff;border-color:var(--success)}
-.btn-success:hover{background:#2a5209;color:#fff}
-.btn-block{width:100%;justify-content:center}
-.btn-sm{padding:5px 11px;font-size:12px}
-.btn-xs{padding:3px 8px;font-size:11px}
-.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:500}
-.b-blue{background:var(--primary-light);color:var(--primary)}
-.b-green{background:var(--success-light);color:var(--success)}
-.b-amber{background:var(--warning-light);color:var(--warning)}
-.b-red{background:var(--danger-light);color:var(--danger)}
-.b-purple{background:var(--purple-light);color:var(--purple)}
-.b-teal{background:var(--teal-light);color:var(--teal)}
-.b-gray{background:var(--gray-100);color:var(--gray-600)}
-.alert{padding:10px 13px;border-radius:var(--radius);font-size:13px;margin-bottom:12px;display:flex;align-items:flex-start;gap:8px}
-.alert-danger{background:var(--danger-light);color:var(--danger);border:1px solid #f0c0c0}
-.alert-success{background:var(--success-light);color:var(--success);border:1px solid #c0de97}
-.alert-info{background:var(--primary-light);color:var(--primary);border:1px solid #b5d4f4}
-.hidden{display:none!important}
-.divider{border:none;border-top:1px solid var(--border);margin:14px 0}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13px}
-thead th{background:var(--gray-100);padding:9px 11px;text-align:left;font-weight:600;font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;border-bottom:1px solid var(--border)}
-tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
-tbody tr:hover{background:var(--bg)}
-tbody td{padding:8px 11px;vertical-align:middle}
-tbody tr:last-child{border-bottom:none}
-.mark-input{width:68px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:var(--bg-card);color:var(--text-primary);outline:none;transition:border-color .15s}
-.mark-input:focus{border-color:var(--primary-mid);box-shadow:0 0 0 2px rgba(55,138,221,.1)}
-.mark-input.changed{border-color:#EF9F27;background:#FFFBF3}
-.progress-bar{height:6px;background:var(--gray-200);border-radius:10px;overflow:hidden;margin-top:4px}
-.progress-fill{height:100%;border-radius:10px;transition:width .3s}
-.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px}
-.tab{padding:8px 15px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s}
-.tab:hover{color:var(--text-primary)}
-.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
-.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;overflow:hidden}
-.avatar img,.avatar-lg img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.avatar-lg{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;overflow:hidden;margin:0 auto 10px}
-.info-row{display:flex;gap:6px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
-.info-row:last-child{border-bottom:none}
-.info-label{width:150px;flex-shrink:0;color:var(--text-secondary);font-weight:500}
-.info-value{flex:1}
-.mark-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
-.mark-row:last-child{border-bottom:none}
-.star-group{display:flex;gap:4px}
-.star{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--bg);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--text-secondary);transition:all .15s;user-select:none}
-.star.on{background:var(--warning-light);color:var(--warning);border-color:#FAC775}
-.star:hover{background:var(--warning-light);color:var(--warning)}
-.photo-drop{border:2px dashed var(--border);border-radius:var(--radius);padding:18px;text-align:center;cursor:pointer;transition:all .15s}
-.photo-drop:hover{border-color:var(--primary-mid);background:var(--primary-light)}
-.photo-drop .preview{width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 8px;display:block}
-.empty-state{text-align:center;padding:40px 20px;color:var(--text-secondary)}
-.empty-state .ic{font-size:36px;margin-bottom:8px;opacity:.4}
-.empty-state p{font-size:13px}
-.notification{position:fixed;bottom:18px;right:18px;padding:9px 14px;border-radius:var(--radius);font-size:13px;z-index:9999;max-width:280px;animation:slideUp .25s ease}
-@keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px}
-.modal{background:var(--bg-card);border-radius:var(--radius-lg);border:1px solid var(--border);width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:22px}
-.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.modal-header h3{font-size:14px;font-weight:600}
-.btn-close{width:26px;height:26px;border:1px solid var(--border);border-radius:6px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text-secondary);transition:background .15s}
-.btn-close:hover{background:var(--gray-100)}
-.gA,.gAp,.gAm{color:var(--success);font-weight:600}
-.gB,.gBp,.gBm{color:var(--primary);font-weight:600}
-.gC,.gCp,.gCm{color:var(--warning);font-weight:600}
-.gD{color:#884400;font-weight:600}
-.gF{color:var(--danger);font-weight:600}
-.filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:13px 18px;border-bottom:1px solid var(--border)}
-.filter-bar input,.filter-bar select{padding:6px 11px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg-card);color:var(--text-primary);outline:none}
-.filter-bar input:focus,.filter-bar select:focus{border-color:var(--primary-mid)}
+/* ── FORM ────────────────────────────────────────── */
+.form-grid    { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.form-group   { display:flex; flex-direction:column; gap:5px; }
+.form-group.full { grid-column:1/-1; }
+label         { font-size:12.5px; font-weight:600; color:var(--text-muted); }
+label .req    { color:var(--danger); }
+input[type=text], input[type=tel], input[type=password],
+select, textarea {
+  padding:8px 11px; border:1px solid var(--border); border-radius:var(--radius);
+  font-size:13.5px; font-family:inherit; color:var(--text);
+  background:#fff; transition:border-color .15s; outline:none; width:100%;
+}
+input:focus, select:focus, textarea:focus {
+  border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light);
+}
+input[readonly], input.readonly {
+  background:#f9f9f7; color:var(--text-muted); cursor:default;
+}
+textarea { resize:vertical; }
+
+/* ── BUTTONS ─────────────────────────────────────── */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:9px 20px;
+       border-radius:var(--radius); font-size:13.5px; font-weight:600;
+       cursor:pointer; border:none; font-family:inherit; transition:all .15s; }
+.btn:disabled { opacity:.55; cursor:not-allowed; }
+.btn-primary  { background:var(--primary); color:#fff; }
+.btn-primary:hover:not(:disabled) { background:var(--primary-dark); }
+.btn-success  { background:var(--success); color:#fff; }
+.btn-success:hover:not(:disabled) { background:#2f570d; }
+.btn-outline  { background:#fff; color:var(--primary); border:1.5px solid var(--primary); }
+.btn-outline:hover:not(:disabled) { background:var(--primary-light); }
+.btn-danger   { background:var(--danger); color:#fff; }
+.btn-sm       { padding:6px 14px; font-size:12.5px; }
+.btn-icon     { padding:7px 10px; }
+.btn-row      { display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
+
+/* ── BADGES ──────────────────────────────────────── */
+.badge { display:inline-flex; align-items:center; padding:3px 10px;
+         border-radius:20px; font-size:11.5px; font-weight:600; }
+.badge-primary { background:var(--primary-light); color:var(--primary-dark); }
+.badge-success { background:var(--success-light); color:var(--success); }
+.badge-warning { background:var(--warning-light); color:var(--warning); }
+.badge-danger  { background:var(--danger-light);  color:var(--danger); }
+.badge-gray    { background:#f0ede8; color:var(--text-muted); }
+
+/* ── ALERTS ──────────────────────────────────────── */
+.alert { padding:11px 14px; border-radius:var(--radius); font-size:13px;
+         margin-bottom:14px; border:1px solid transparent; }
+.alert-info    { background:var(--primary-light); color:var(--primary-dark); border-color:#b5d4f4; }
+.alert-success { background:var(--success-light); color:var(--success);      border-color:#c0dd97; }
+.alert-warning { background:var(--warning-light); color:var(--warning);      border-color:#fac775; }
+.alert-danger  { background:var(--danger-light);  color:var(--danger);       border-color:#f7c1c1; }
+
+/* ── LOGIN ───────────────────────────────────────── */
+#login-screen { min-height:100vh; background:var(--bg); display:flex;
+                align-items:center; justify-content:center; }
+.login-card   { background:#fff; border:1px solid var(--border); border-radius:16px;
+                padding:40px 44px; width:420px;
+                box-shadow:0 4px 32px rgba(24,95,165,.08); }
+.login-logo   { text-align:center; margin-bottom:28px; }
+.login-icon   { width:68px; height:68px; background:var(--primary);
+                border-radius:16px; display:flex; align-items:center;
+                justify-content:center; margin:0 auto 14px;
+                color:#fff; font-size:22px; font-weight:800; }
+.login-title  { font-size:20px; font-weight:700; }
+.login-sub    { font-size:13px; color:var(--text-faint); margin-top:4px; }
+.login-divider{ display:flex; align-items:center; gap:10px; margin:16px 0;
+                color:var(--text-faint); font-size:12px; }
+.login-divider::before, .login-divider::after {
+  content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── PAGE HEADERS ────────────────────────────────── */
+.page-title { font-size:20px; font-weight:700; margin-bottom:3px; }
+.page-sub   { font-size:13px; color:var(--text-faint); margin-bottom:22px; }
+
+/* ── PHOTO UPLOAD ────────────────────────────────── */
+.photo-zone { border:2px dashed var(--border); border-radius:var(--radius-lg);
+              padding:28px; text-align:center; cursor:pointer;
+              transition:all .15s; }
+.photo-zone:hover { border-color:var(--primary); background:var(--primary-light); }
+.photo-zone.has-photo { border-style:solid; border-color:var(--primary); }
+.photo-preview { width:130px; height:160px; object-fit:cover; border-radius:var(--radius);
+                 border:2px solid var(--border); display:block; margin:0 auto 10px; }
+.profile-card-photo { width:96px; height:120px; object-fit:cover;
+                       border-radius:var(--radius); border:2px solid var(--border); }
+
+/* ── STARS ───────────────────────────────────────── */
+.stars { display:flex; gap:3px; }
+.star  { font-size:24px; cursor:pointer; color:#d3d1c7; transition:color .1s; line-height:1; }
+.star.on, .star:hover ~ .star-reset { color:#d3d1c7; }
+.stars:hover .star { color:#E89C16; }
+.stars:hover .star:hover ~ .star { color:#d3d1c7; }
+.star.on { color:#E89C16; }
+.stars.readonly .star { cursor:default; }
+
+/* ── PEER CARD ───────────────────────────────────── */
+.peer-item { display:flex; align-items:center; justify-content:space-between;
+             padding:14px 18px; border:1px solid var(--border-light);
+             border-radius:var(--radius); margin-bottom:10px; background:#fafaf8; }
+.peer-name { font-weight:600; font-size:14px; }
+.peer-role { font-size:12px; color:var(--text-faint); margin-top:2px; }
+
+/* ── CRITERIA TABLE ──────────────────────────────── */
+.criteria-row { display:flex; align-items:center; justify-content:space-between;
+                padding:13px 0; border-bottom:1px solid var(--border-light); gap:16px; }
+.criteria-row:last-child { border-bottom:none; }
+.criteria-label { flex:1; }
+.criteria-name  { font-size:13.5px; font-weight:600; }
+.criteria-desc  { font-size:12px; color:var(--text-faint); margin-top:2px; }
+.score-display  { font-size:18px; font-weight:700; color:var(--primary);
+                  min-width:28px; text-align:right; }
+
+/* ── SCORE SUMMARY ───────────────────────────────── */
+.score-total { background:var(--primary-light); border:1px solid #b5d4f4;
+               border-radius:var(--radius); padding:14px 18px;
+               display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+.score-total-val { font-size:24px; font-weight:800; color:var(--primary); }
+
+/* ── STAT GRID ───────────────────────────────────── */
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:18px; }
+.stat-card { background:#fff; border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; }
+.stat-val  { font-size:24px; font-weight:800; color:var(--primary); }
+.stat-lbl  { font-size:12px; color:var(--text-faint); margin-top:3px; }
+
+/* ── PROGRESS ────────────────────────────────────── */
+.progress     { height:7px; background:var(--border); border-radius:4px; overflow:hidden; }
+.progress-bar { height:100%; border-radius:4px; transition:width .5s; }
+
+/* ── DATA TABLE ──────────────────────────────────── */
+.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+.data-table th { text-align:left; padding:9px 12px; font-size:11.5px; font-weight:700;
+                 text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint);
+                 border-bottom:2px solid var(--border); background:#fafaf8; }
+.data-table td { padding:10px 12px; border-bottom:1px solid var(--border-light); vertical-align:middle; }
+.data-table tr:hover td { background:var(--primary-light); }
+
+/* ── PROFILE PREVIEW ─────────────────────────────── */
+.profile-grid { display:flex; gap:20px; align-items:flex-start; }
+.profile-info-row { display:flex; justify-content:space-between; padding:9px 0;
+                    border-bottom:1px solid var(--border-light); font-size:13.5px; }
+.profile-info-row:last-child { border-bottom:none; }
+
+/* ── CHECKLIST ───────────────────────────────────── */
+.checklist-item { display:flex; justify-content:space-between; align-items:center;
+                  padding:8px 0; border-bottom:1px solid var(--border-light); font-size:13px; }
+.checklist-item:last-child { border-bottom:none; }
+.check-ok   { color:var(--success); font-size:16px; }
+.check-no   { color:var(--warning); font-size:16px; }
+
+/* ── SPINNER ─────────────────────────────────────── */
+.spinner { width:15px; height:15px; border:2px solid rgba(255,255,255,.3);
+           border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+.spinner.dark { border-color:rgba(24,95,165,.2); border-top-color:var(--primary); }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── LOADING OVERLAY ─────────────────────────────── */
+#loading-overlay { position:fixed; inset:0; background:rgba(247,246,243,.8);
+                   display:flex; align-items:center; justify-content:center;
+                   z-index:9999; backdrop-filter:blur(2px); }
+.loading-box { background:#fff; border:1px solid var(--border); border-radius:12px;
+               padding:24px 32px; display:flex; align-items:center; gap:14px; font-size:14px; }
+.loading-box .spinner { border-color:rgba(24,95,165,.2); border-top-color:var(--primary);
+                        width:20px; height:20px; }
+
+/* ── DIVIDER ─────────────────────────────────────── */
+.divider { height:1px; background:var(--border-light); margin:16px 0; }
+
+/* ── HIDDEN ──────────────────────────────────────── */
+.hidden { display:none !important; }
+
+/* ── MOBILE SAFEGUARD ────────────────────────────── */
+@media(max-width:700px){
+  #sidebar { display:none; }
+  #main    { margin-left:0; padding:16px; }
+  .form-grid { grid-template-columns:1fr; }
+  .stat-grid { grid-template-columns:1fr 1fr; }
+}
 </style>
 </head>
 <body>
 
-<!-- Loading -->
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <div class="loading-text">Memuatkan sistem...</div>
-</div>
-
-<!-- ── AUTH ── -->
-<div id="screen-auth" class="hidden">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="auth-logo-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8">
-          <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-        </svg>
-      </div>
-      <h1>Sistem Pemarkahan IPG</h1>
-      <p>MPU2082 — Pentaksiran Berterusan 2024/2025</p>
-    </div>
-
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-pensyarah" onclick="switchTab('pensyarah')">Pensyarah</button>
-      <button class="auth-tab" id="tab-pelajar" onclick="switchTab('pelajar')">Pelajar</button>
-    </div>
-
-    <div id="form-pensyarah">
-      <div class="form-group">
-        <label>E-mel</label>
-        <input type="email" id="auth-email" placeholder="email@ipgm.edu.my" value="hanifffaizal@gmail.com"/>
-      </div>
-      <div class="form-group">
-        <label>Kata Laluan</label>
-        <input type="password" id="auth-pass" placeholder="Kata laluan" value="790704025409"/>
-      </div>
-    </div>
-
-    <div id="form-pelajar" class="hidden">
-      <div class="form-group">
-        <label>Nombor Kad Pengenalan</label>
-        <input type="text" id="auth-nokp" placeholder="cth: 030924080985"/>
-      </div>
-    </div>
-
-    <div id="auth-err" class="alert alert-danger hidden"></div>
-
-    <button class="btn btn-primary btn-block" id="btn-login" onclick="doLogin()" style="margin-top:6px">
-      Log Masuk
-    </button>
+<!-- ══════════════════════════════════════════════════════════
+     LOADING OVERLAY
+══════════════════════════════════════════════════════════ -->
+<div id="loading-overlay" class="hidden">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <span id="loading-text">Sila tunggu...</span>
   </div>
 </div>
 
-<!-- ── APP ── -->
-<div id="app" class="hidden">
-  <aside class="sidebar">
-    <div class="sb-brand">
-      <h1>Sistem Pemarkahan IPG</h1>
-      <p>MPU2082 | 2024/2025</p>
+<!-- ══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-icon">IPG</div>
+      <div class="login-title">Portal Pelajar</div>
+      <div class="login-sub">Institut Pendidikan Guru Malaysia</div>
     </div>
-    <div class="sb-user" id="sb-user"></div>
-    <nav class="sb-nav" id="sb-nav"></nav>
-    <div class="sb-footer">
-      <button class="btn-logout" onclick="doLogout()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+
+    <div id="login-alert" class="hidden"></div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label>No. Kad Pengenalan</label>
+      <input type="text" id="kp-input" placeholder="Contoh: 050112141234"
+             maxlength="20" autocomplete="off" style="letter-spacing:.04em;font-size:15px" />
+      <span style="font-size:11.5px;color:var(--text-faint);margin-top:3px">
+        Masukkan 12 digit tanpa sempang
+      </span>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px"
+            onclick="handleLogin()">
+      Log Masuk
+    </button>
+
+    <div class="login-divider">ATAU</div>
+
+    <button class="btn btn-outline" style="width:100%;justify-content:center;font-size:13px"
+            onclick="demoLogin()">
+      Cuba Demo (tanpa data sebenar)
+    </button>
+
+    <p style="text-align:center;font-size:11.5px;color:var(--text-faint);margin-top:18px">
+      Sistem ini hanya untuk pelajar berdaftar IPG.<br>
+      Masalah log masuk? Hubungi pentadbir sistem.
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN APP (hidden until login)
+══════════════════════════════════════════════════════════ -->
+<div id="app" class="hidden">
+
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <div class="tb-brand">
+      <div class="tb-name">Portal Pelajar — IPG</div>
+      <div class="tb-inst">Institut Pendidikan Guru Malaysia</div>
+    </div>
+    <div class="tb-right">
+      <span class="tb-badge" id="tb-kumpulan">—</span>
+      <div class="avatar" id="tb-avatar">?</div>
+      <span style="font-size:13px" id="tb-nama">—</span>
+      <button class="btn btn-sm" onclick="handleLogout()"
+        style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)">
         Log Keluar
       </button>
     </div>
-  </aside>
-  <main class="main">
-    <div class="topbar">
-      <h2 id="page-title">Papan Pemuka</h2>
-      <div id="topbar-right"></div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="nav-section">Profil Saya</div>
+    <div class="nav-item active" data-page="biodata" onclick="gotoPage('biodata')">
+      <span class="nav-icon">👤</span> Biodata Peribadi
     </div>
-    <div class="content" id="content"></div>
-  </main>
-</div>
+    <div class="nav-item" data-page="gambar" onclick="gotoPage('gambar')">
+      <span class="nav-icon">🖼️</span> Gambar Profil
+    </div>
+    <div class="nav-item" data-page="profil" onclick="gotoPage('profil')">
+      <span class="nav-icon">📋</span> Pratonton Profil
+    </div>
+    <div class="nav-section" style="margin-top:8px">Penilaian AJK</div>
+    <div class="nav-item" data-page="peer" onclick="gotoPage('peer')">
+      <span class="nav-icon">⭐</span> Penilaian Rakan
+    </div>
+    <div class="nav-item" data-page="ringkasan" onclick="gotoPage('ringkasan')">
+      <span class="nav-icon">📊</span> Ringkasan Markah
+    </div>
+  </nav>
 
-<div id="modal-wrap"></div>
-<div id="notif" style="display:none" class="notification"></div>
+  <!-- MAIN CONTENT -->
+  <main id="main">
 
-<script>
-// ================================================================
-// STATE
-// ================================================================
-let SESSION = null;        // { type, user }
-let PELAJAR_CACHE = [];    // list of all students
-let MARKAH_CACHE = {};     // { nokp: markahObj }
-let UNSAVED_MARKAH = {};   // pending changes from table inputs
+    <!-- ── PAGE: BIODATA ─────────────────────────── -->
+    <section id="page-biodata">
+      <div class="page-title">Biodata Peribadi</div>
+      <div class="page-sub">Lengkapkan maklumat peribadi anda. Medan bertanda <span style="color:var(--danger)">*</span> adalah wajib.</div>
 
-// ================================================================
-// UTILITY HELPERS
-// ================================================================
-const $ = id => document.getElementById(id);
-const html = (id, h) => { const el = $(id); if (el) el.innerHTML = h; };
+      <div id="biodata-alert" class="hidden"></div>
 
-function notify(msg, type = 'info') {
-  const el = $('notif');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.style.background = type === 'success' ? '#3B6D11' : type === 'error' ? '#A32D2D' : '#185FA5';
-  el.style.color = '#fff';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.display = 'none'; }, 3200);
-}
-
-function showLoading(msg = 'Memuatkan...') {
-  $('loading-overlay').style.display = 'flex';
-  $('loading-overlay').querySelector('.loading-text').textContent = msg;
-}
-function hideLoading() { $('loading-overlay').style.display = 'none'; }
-
-function getInitials(nama) {
-  return nama.split(' ').filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || nama.slice(0, 2).toUpperCase();
-}
-
-const AVATAR_COLORS = [
-  ['#E6F1FB','#185FA5'],['#E1F5EE','#0F6E56'],['#EEEDFE','#534AB7'],
-  ['#FAEEDA','#854F0B'],['#FAECE7','#993C1D'],['#EAF3DE','#3B6D11']
-];
-function avatarColor(nama) {
-  const i = (nama.charCodeAt(0) || 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[i];
-}
-
-function gredClass(g) {
-  if (!g || g === '—') return '';
-  if (g === 'A+') return 'gAp';
-  if (g === 'A') return 'gA';
-  if (g === 'A-') return 'gAm';
-  if (g.startsWith('B')) return 'gB';
-  if (g.startsWith('C')) return 'gC';
-  if (g === 'D') return 'gD';
-  return 'gF';
-}
-
-function kelasBadge(kelas) {
-  if (kelas === 'PBKK') return 'b-blue';
-  if (kelas === 'PIMK') return 'b-purple';
-  return 'b-teal';
-}
-
-function avatarHTML(nama, gambar, size = 32) {
-  const [bg, tc] = avatarColor(nama);
-  const style = `width:${size}px;height:${size}px;font-size:${Math.round(size*0.38)}px;background:${bg};color:${tc}`;
-  const inner = gambar ? `<img src="${gambar}" alt=""/>` : getInitials(nama);
-  return `<div class="avatar" style="${style}">${inner}</div>`;
-}
-
-// ================================================================
-// GAS BRIDGE — memanggil Code.gs handleRequest
-// ================================================================
-function gasCall(action, payload = {}) {
-  return new Promise((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res && res.ok === false) reject(new Error(res.error || 'Ralat tidak diketahui'));
-        else resolve(res);
-      })
-      .withFailureHandler(err => reject(err))
-      .handleRequest(action, payload);
-  });
-}
-
-// ================================================================
-// AUTH
-// ================================================================
-function switchTab(tab) {
-  $('tab-pensyarah').classList.toggle('active', tab === 'pensyarah');
-  $('tab-pelajar').classList.toggle('active', tab === 'pelajar');
-  $('form-pensyarah').classList.toggle('hidden', tab !== 'pensyarah');
-  $('form-pelajar').classList.toggle('hidden', tab !== 'pelajar');
-  $('auth-err').classList.add('hidden');
-}
-
-async function doLogin() {
-  $('auth-err').classList.add('hidden');
-  const isPensyarah = !$('form-pensyarah').classList.contains('hidden');
-  $('btn-login').disabled = true;
-  $('btn-login').textContent = 'Mengesahkan...';
-
-  try {
-    let payload;
-    if (isPensyarah) {
-      payload = {
-        type: 'pensyarah',
-        email: $('auth-email').value.trim(),
-        password: $('auth-pass').value.trim()
-      };
-    } else {
-      payload = {
-        type: 'pelajar',
-        nokp: $('auth-nokp').value.trim()
-      };
-    }
-
-    const res = await gasCall('login', payload);
-    SESSION = res;
-    await loadInitialData();
-    startApp();
-
-  } catch (e) {
-    $('auth-err').textContent = e.message;
-    $('auth-err').classList.remove('hidden');
-  } finally {
-    $('btn-login').disabled = false;
-    $('btn-login').textContent = 'Log Masuk';
-  }
-}
-
-async function loadInitialData() {
-  showLoading('Memuatkan data pelajar...');
-  const res = await gasCall('getPelajarList');
-  PELAJAR_CACHE = res.data || [];
-
-  showLoading('Memuatkan rekod markah...');
-  const mRes = await gasCall('getAllMarkah');
-  MARKAH_CACHE = {};
-  (mRes.data || []).forEach(m => { MARKAH_CACHE[m.nokp] = m; });
-}
-
-function doLogout() {
-  SESSION = null;
-  PELAJAR_CACHE = [];
-  MARKAH_CACHE = {};
-  UNSAVED_MARKAH = {};
-  $('app').classList.add('hidden');
-  $('screen-auth').classList.remove('hidden');
-}
-
-// ================================================================
-// APP SHELL
-// ================================================================
-function startApp() {
-  hideLoading();
-  $('screen-auth').classList.add('hidden');
-  $('app').classList.remove('hidden');
-
-  if (SESSION.type === 'pensyarah') {
-    buildSidebarPensyarah();
-    navigateTo('dashboard');
-  } else {
-    buildSidebarPelajar();
-    navigateTo('bio');
-  }
-}
-
-function buildSidebarPensyarah() {
-  const u = SESSION.user;
-  const [bg, tc] = avatarColor(u.nama);
-  html('sb-user', `
-    <div class="avatar" style="width:30px;height:30px;font-size:11px;background:${bg};color:${tc}">${getInitials(u.nama)}</div>
-    <div>
-      <div class="sb-user-name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
-      <div class="sb-user-role">${u.role === 'admin' ? 'Pentadbir' : 'Pensyarah'}</div>
-    </div>`);
-
-  const navItems = [
-    { id: 'dashboard', label: 'Papan Pemuka',        icon: icoHome() },
-    { id: 'pelajar',   label: 'Senarai Pelajar',     icon: icoUsers() },
-    { id: 'markah',    label: 'Rekod Markah',         icon: icoCheck() },
-    { id: 'laporan',   label: 'Laporan & Analisis',   icon: icoChart() },
-    { id: 'peer',      label: 'Penilaian Rakan',      icon: icoStar() },
-  ];
-  html('sb-nav', navItems.map(n => `
-    <div class="nav-item" id="nav-${n.id}" onclick="navigateTo('${n.id}')">
-      ${n.icon}<span>${n.label}</span>
-    </div>`).join(''));
-}
-
-function buildSidebarPelajar() {
-  const u = SESSION.user;
-  const [bg, tc] = avatarColor(u.nama);
-  html('sb-user', `
-    <div class="avatar" style="width:30px;height:30px;font-size:11px;background:${bg};color:${tc}">${getInitials(u.nama)}</div>
-    <div>
-      <div class="sb-user-name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
-      <div class="sb-user-role">${u.kelas} | ${u.agiliran}</div>
-    </div>`);
-
-  const navItems = [
-    { id: 'bio',         label: 'Profil & Biodata',  icon: icoUser() },
-    { id: 'peer-hantar', label: 'Nilai Rakan',        icon: icoStar() },
-    { id: 'markah-saya', label: 'Markah Saya',        icon: icoChart() },
-  ];
-  html('sb-nav', navItems.map(n => `
-    <div class="nav-item" id="nav-${n.id}" onclick="navigateTo('${n.id}')">
-      ${n.icon}<span>${n.label}</span>
-    </div>`).join(''));
-}
-
-function navigateTo(screen) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const navEl = $('nav-' + screen);
-  if (navEl) navEl.classList.add('active');
-
-  const titles = {
-    dashboard: 'Papan Pemuka', pelajar: 'Senarai Pelajar',
-    markah: 'Rekod Markah', laporan: 'Laporan & Analisis',
-    peer: 'Penilaian Rakan Sebaya',
-    bio: 'Profil & Biodata', 'peer-hantar': 'Nilai Rakan',
-    'markah-saya': 'Markah Saya'
-  };
-  $('page-title').textContent = titles[screen] || screen;
-
-  const screens = {
-    dashboard: renderDashboard, pelajar: renderPelajar,
-    markah: renderMarkah, laporan: renderLaporan,
-    peer: renderPeerView,
-    bio: renderBio, 'peer-hantar': renderPeerHantar,
-    'markah-saya': renderMarkahSaya
-  };
-  if (screens[screen]) screens[screen]();
-}
-
-// ================================================================
-// ICONS
-// ================================================================
-const ic = d => `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${d}</svg>`;
-const icoHome  = () => ic('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
-const icoUsers = () => ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
-const icoCheck = () => ic('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
-const icoChart = () => ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
-const icoStar  = () => ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
-const icoUser  = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
-const icoSave  = () => ic('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>');
-
-// ================================================================
-// SCREEN: DASHBOARD
-// ================================================================
-async function renderDashboard() {
-  html('content', `<div style="text-align:center;padding:40px"><div class="spinner" style="margin:auto"></div><div style="margin-top:12px;font-size:13px;color:var(--text-secondary)">Memuatkan dashboard...</div></div>`);
-  try {
-    const res = await gasCall('getDashboard');
-    const d = res.data;
-    const gradeColors = { A:'#97C459', B:'#85B7EB', C:'#EF9F27', D:'#E24B4A', F:'#A32D2D' };
-
-    html('content', `
-      <div class="grid-4" style="margin-bottom:14px">
-        <div class="stat-card"><div class="lbl">Jumlah Pelajar</div><div class="val">${d.jumlahPelajar}</div><div class="sub">3 kelas</div></div>
-        <div class="stat-card"><div class="lbl">Markah Direkod</div><div class="val">${d.rekodDimasuk}</div><div class="sub">${d.peratusLengkap}% selesai</div></div>
-        <div class="stat-card"><div class="lbl">Purata Markah</div><div class="val">${d.purataMark || '—'}</div><div class="sub">daripada 100</div></div>
-        <div class="stat-card"><div class="lbl">Penilaian Rakan</div><div class="val">${d.totalPeer}</div><div class="sub">rekod dihantar</div></div>
-      </div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Agihan Gred</div><div class="card-sub">Markah PB keseluruhan</div></div></div>
-          <canvas id="ch-grade" height="180"></canvas>
-        </div>
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Pelajar Mengikut Kelas</div></div></div>
-          <canvas id="ch-kelas" height="180"></canvas>
-        </div>
-      </div>
+      <!-- Maklumat Peribadi -->
       <div class="card">
-        <div class="card-header">
-          <div class="card-title">Kemajuan Pemarkahan</div>
-          <button class="btn btn-sm btn-primary" onclick="navigateTo('markah')">${icoCheck()} Rekod Markah</button>
-        </div>
-        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">${d.rekodDimasuk} / ${d.jumlahPelajar} pelajar (${d.peratusLengkap}%)</div>
-        <div class="progress-bar"><div class="progress-fill" style="width:${d.peratusLengkap}%;background:var(--primary)"></div></div>
-      </div>
-    `);
-
-    setTimeout(() => {
-      const gradeLabels = Object.keys(d.gradeDist);
-      const gradeData = gradeLabels.map(k => d.gradeDist[k]);
-      new Chart($('ch-grade'), {
-        type:'bar',
-        data:{ labels:gradeLabels, datasets:[{ data:gradeData,
-          backgroundColor:gradeLabels.map(g => gradeColors[g]||'#888'),
-          borderRadius:5, borderSkipped:false }]},
-        options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
-      });
-      const kls = Object.keys(d.kelasStats);
-      new Chart($('ch-kelas'), {
-        type:'doughnut',
-        data:{ labels:kls, datasets:[{ data:kls.map(k => d.kelasStats[k].total),
-          backgroundColor:['#378ADD','#1D9E75','#D85A30'], borderWidth:2 }]},
-        options:{ plugins:{ legend:{ position:'bottom' } }, cutout:'65%' }
-      });
-    }, 100);
-
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
-
-// ================================================================
-// SCREEN: SENARAI PELAJAR
-// ================================================================
-async function renderPelajar() {
-  html('content', `
-    <div class="card card-p0">
-      <div class="filter-bar">
-        <input id="q-pelajar" type="text" placeholder="Cari nama / angka giliran..." style="flex:1;min-width:180px">
-        <select id="f-kelas">
-          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-        </select>
-        <span id="count-pelajar" class="badge b-blue">— pelajar</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>#</th><th>Nama</th><th>Angka Giliran</th><th>Kelas</th><th>Jantina</th>
-            <th>Biodata</th><th>Markah</th><th>Gred</th><th></th>
-          </tr></thead>
-          <tbody id="tbody-pelajar"></tbody>
-        </table>
-      </div>
-    </div>`);
-
-  // Fetch biodata semua pelajar
-  let biodataMap = {};
-  try {
-    const bRes = await gasCall('getLaporan');
-    (bRes.data || []).forEach(r => { biodataMap[r.nokp] = r; });
-  } catch(e) {}
-
-  function renderRows() {
-    const q = $('q-pelajar').value.toLowerCase();
-    const kls = $('f-kelas').value;
-    const filtered = PELAJAR_CACHE.filter(p => {
-      const mq = !q || p.nama.toLowerCase().includes(q) || p.agiliran.toLowerCase().includes(q);
-      const mk = kls === 'Semua' || p.kelas === kls;
-      return mq && mk;
-    });
-    $('count-pelajar').textContent = filtered.length + ' pelajar';
-    html('tbody-pelajar', filtered.map((p, i) => {
-      const m = MARKAH_CACHE[p.nokp];
-      const bio = biodataMap[p.nokp] || {};
-      const hasBio = !!(bio.jawatan);
-      const hasMark = !!(m && m.jumlah !== null);
-      const gred = hasMark ? m.gred : '—';
-      return `<tr>
-        <td style="color:var(--text-secondary);font-size:12px">${i+1}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${avatarHTML(p.nama, bio.urlGambar, 28)}
-            <span style="font-size:12px;font-weight:500">${p.nama}</span>
+        <div class="card-title">📌 Maklumat Peribadi</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>No. Kad Pengenalan</label>
+            <input type="text" id="bd-nokp" class="readonly" readonly />
           </div>
-        </td>
-        <td style="font-size:12px;color:var(--text-secondary)">${p.agiliran}</td>
-        <td><span class="badge ${kelasBadge(p.kelas)}">${p.kelas}</span></td>
-        <td style="font-size:12px">${p.jantina === 'L' ? '♂' : '♀'} ${p.jantina === 'L' ? 'L' : 'P'}</td>
-        <td><span class="badge ${hasBio ? 'b-green' : 'b-gray'}">${hasBio ? '✓ Lengkap' : 'Belum'}</span></td>
-        <td><strong>${hasMark ? Number(m.jumlah).toFixed(1) : '—'}</strong></td>
-        <td><span class="${gredClass(gred)}">${gred}</span></td>
-        <td><button class="btn btn-xs" onclick="modalPelajar('${p.nokp}')">Detail</button></td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-secondary)">Tiada pelajar dijumpai</td></tr>');
-  }
-
-  $('q-pelajar').addEventListener('input', renderRows);
-  $('f-kelas').addEventListener('change', renderRows);
-  renderRows();
-}
-
-// ================================================================
-// SCREEN: REKOD MARKAH
-// ================================================================
-async function renderMarkah() {
-  html('content', `
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title" style="margin-bottom:10px">Komponen Pentaksiran Berterusan — MPU2082</div>
-      <div class="grid-3">
-        <div style="background:var(--primary-light);border-radius:8px;padding:11px">
-          <div style="font-size:10px;font-weight:600;color:var(--primary);text-transform:uppercase;letter-spacing:.05em">HPK1 — Kuiz</div>
-          <div style="font-size:22px;font-weight:700;color:var(--primary);margin:2px 0">10%</div>
-          <div style="font-size:11px;color:var(--primary)">HP1 × 10%</div>
-        </div>
-        <div style="background:var(--success-light);border-radius:8px;padding:11px">
-          <div style="font-size:10px;font-weight:600;color:var(--success);text-transform:uppercase;letter-spacing:.05em">HPK2 — Ujian Amali I</div>
-          <div style="font-size:22px;font-weight:700;color:var(--success);margin:2px 0">60%</div>
-          <div style="font-size:11px;color:var(--success)">HP4 (×30%) + HP5 (×30%)</div>
-        </div>
-        <div style="background:var(--warning-light);border-radius:8px;padding:11px">
-          <div style="font-size:10px;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:.05em">HPK3 — Ujian Amali II</div>
-          <div style="font-size:22px;font-weight:700;color:var(--warning);margin:2px 0">30%</div>
-          <div style="font-size:11px;color:var(--warning)">HP3 (×15%) + HP8 (×15%)</div>
+          <div class="form-group">
+            <label>Nama Penuh <span class="req">*</span></label>
+            <input type="text" id="bd-nama" placeholder="Nama seperti dalam KP" />
+          </div>
+          <div class="form-group">
+            <label>No. Angka Giliran</label>
+            <input type="text" id="bd-giliran" placeholder="cth: 2024001" />
+          </div>
+          <div class="form-group">
+            <label>Kelas</label>
+            <input type="text" id="bd-kelas" placeholder="cth: PISMP MT1" />
+          </div>
+          <div class="form-group">
+            <label>Jantina</label>
+            <select id="bd-jantina">
+              <option value="">— Pilih —</option>
+              <option value="Lelaki">Lelaki</option>
+              <option value="Perempuan">Perempuan</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Siri</label>
+            <input type="text" id="bd-siri" placeholder="cth: 2024" />
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="card card-p0">
-      <div class="filter-bar">
-        <input id="q-markah" type="text" placeholder="Cari nama..." style="flex:1;min-width:160px">
-        <select id="f-markah-kelas">
-          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-        </select>
-        <span id="unsaved-count" class="badge b-amber" style="display:none">0 perubahan belum disimpan</span>
-        <button class="btn btn-success btn-sm" id="btn-save-all" onclick="saveAllMarkah()">
-          ${icoSave()} Simpan Semua
+      <!-- Maklumat AJK -->
+      <div class="card">
+        <div class="card-title">🏛️ Maklumat AJK & Kumpulan</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Jawatan AJK <span class="req">*</span></label>
+            <input type="text" id="bd-jawatan" placeholder="cth: Pengerusi, Setiausaha..." />
+          </div>
+          <div class="form-group">
+            <label>Kumpulan AJK <span class="req">*</span></label>
+            <input type="text" id="bd-kumpulan" placeholder="cth: 1, 2, 3..." />
+          </div>
+          <div class="form-group">
+            <label>No. Dalam Kumpulan</label>
+            <input type="text" id="bd-no-kumpulan" placeholder="cth: 3" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Kesihatan & Kecemasan -->
+      <div class="card">
+        <div class="card-title">🏥 Kesihatan & Kecemasan</div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Alahan / Masalah Kesihatan</label>
+            <textarea id="bd-alahan" rows="2" placeholder="Jika tiada, tulis 'Tiada'"></textarea>
+          </div>
+          <div class="form-group full">
+            <label>Ubat-ubatan</label>
+            <textarea id="bd-ubatan" rows="2" placeholder="Jika tiada, tulis 'Tiada'"></textarea>
+          </div>
+          <div class="form-group full">
+            <label>No. Telefon Kecemasan <span class="req">*</span></label>
+            <input type="tel" id="bd-tel" placeholder="01X-XXXXXXX (ibu bapa / penjaga)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveBiodata()">
+          <span>💾</span> Simpan Biodata
+        </button>
+        <button class="btn btn-outline" onclick="gotoPage('gambar')">
+          Seterusnya: Gambar Profil →
         </button>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Nama / Kelas</th>
-            <th>Kuiz /100<br><small style="font-weight:400;font-size:9px">HPK1 ×10%</small></th>
-            <th>HP4 /100<br><small style="font-weight:400;font-size:9px">HPK2 ×30%</small></th>
-            <th>HP5 /100<br><small style="font-weight:400;font-size:9px">HPK2 ×30%</small></th>
-            <th>HP3 /100<br><small style="font-weight:400;font-size:9px">HPK3 ×15%</small></th>
-            <th>HP8 /100<br><small style="font-weight:400;font-size:9px">HPK3 ×15%</small></th>
-            <th>HPK1</th><th>HPK2</th><th>HPK3</th>
-            <th>Jumlah</th><th>Gred</th>
-          </tr></thead>
-          <tbody id="tbody-markah"></tbody>
-        </table>
-      </div>
-    </div>`);
+    </section>
 
-  function renderMarkahRows() {
-    const q = $('q-markah').value.toLowerCase();
-    const kls = $('f-markah-kelas').value;
-    const filtered = PELAJAR_CACHE.filter(p => {
-      const mq = !q || p.nama.toLowerCase().includes(q);
-      const mk = kls === 'Semua' || p.kelas === kls;
-      return mq && mk;
-    });
+    <!-- ── PAGE: GAMBAR ──────────────────────────── -->
+    <section id="page-gambar" class="hidden">
+      <div class="page-title">Gambar Profil</div>
+      <div class="page-sub">Muat naik gambar terkini bertaraf kad pengenalan untuk profil anda.</div>
 
-    html('tbody-markah', filtered.map(p => {
-      const m = { ...(MARKAH_CACHE[p.nokp] || {}), ...(UNSAVED_MARKAH[p.nokp] || {}) };
-      const calc = hitungMarkahClient(m);
-      const hasMark = calc.jumlah > 0 || Object.keys(m).length > 0;
-      const gred = hasMark ? tentukanGredClient(calc.jumlah) : '—';
-      const isUnsaved = !!UNSAVED_MARKAH[p.nokp];
+      <div id="gambar-alert" class="hidden"></div>
 
-      return `<tr id="row-${p.nokp}" ${isUnsaved ? 'style="background:#FFFBF3"' : ''}>
-        <td>
-          <div style="font-size:12px;font-weight:500">${p.nama}</div>
-          <div style="display:flex;gap:4px;margin-top:2px">
-            <span class="badge ${kelasBadge(p.kelas)}" style="font-size:10px">${p.kelas}</span>
-            <span style="font-size:10px;color:var(--text-secondary)">${p.agiliran}</span>
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:280px">
+          <div class="card">
+            <div class="card-title">📤 Muat Naik Gambar</div>
+            <div class="alert alert-info" style="margin-bottom:16px">
+              ℹ️ Gunakan gambar berpakaian rasmi / formal. Format JPG atau PNG, saiz maksimum 5MB.
+            </div>
+            <div class="photo-zone" id="photo-zone" onclick="document.getElementById('photo-input').click()">
+              <div id="photo-placeholder">
+                <div style="font-size:40px;margin-bottom:8px">📷</div>
+                <div style="font-weight:600;color:var(--text-muted)">Klik untuk pilih gambar</div>
+                <div style="font-size:12px;color:var(--text-faint);margin-top:4px">JPG, PNG — Maks 5MB</div>
+              </div>
+              <div id="photo-preview-wrap" class="hidden">
+                <img id="photo-preview-img" class="photo-preview" alt="Gambar profil" />
+                <div style="font-size:12px;color:var(--text-faint)">Klik untuk tukar gambar</div>
+              </div>
+            </div>
+            <input type="file" id="photo-input" accept="image/jpeg,image/png,image/jpg"
+                   style="display:none" onchange="handlePhotoSelect(event)" />
+            <div class="btn-row" style="margin-top:16px">
+              <button class="btn btn-primary" id="btn-upload-photo" onclick="uploadPhoto()" disabled>
+                ☁️ Simpan ke Google Drive
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="clearPhoto()">Buang Gambar</button>
+            </div>
           </div>
-        </td>
-        ${['kuiz','hp4','hp5','hp3','hp8'].map(key => `
-        <td><input class="mark-input ${UNSAVED_MARKAH[p.nokp]?.[key] !== undefined ? 'changed' : ''}"
-          data-nokp="${p.nokp}" data-key="${key}" type="number"
-          min="0" max="100" step="0.5"
-          value="${m[key] !== undefined && m[key] !== null ? m[key] : ''}"
-          placeholder="—"
-          oninput="onMarkahInput(this)"/></td>`).join('')}
-        <td id="c1-${p.nokp}"><span style="font-size:12px">${hasMark ? calc.hpk1.toFixed(1) : '—'}</span></td>
-        <td id="c2-${p.nokp}"><span style="font-size:12px">${hasMark ? calc.hpk2.toFixed(1) : '—'}</span></td>
-        <td id="c3-${p.nokp}"><span style="font-size:12px">${hasMark ? calc.hpk3.toFixed(1) : '—'}</span></td>
-        <td id="tot-${p.nokp}"><strong style="font-size:13px">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong></td>
-        <td id="gred-${p.nokp}"><span class="${gredClass(gred)}">${gred}</span></td>
-      </tr>`;
-    }).join(''));
-  }
+        </div>
 
-  $('q-markah').addEventListener('input', renderMarkahRows);
-  $('f-markah-kelas').addEventListener('change', renderMarkahRows);
-  renderMarkahRows();
+        <!-- Kad profil mini -->
+        <div style="width:200px;flex-shrink:0">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text-muted);margin-bottom:10px">
+            PRATONTON KAD
+          </div>
+          <div style="border:2px solid var(--primary);border-radius:12px;padding:16px;text-align:center;background:var(--primary-light)">
+            <div id="kad-photo-wrap">
+              <div style="width:96px;height:120px;background:#e0ddd7;border-radius:8px;
+                           margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px">
+                👤
+              </div>
+            </div>
+            <div style="font-weight:700;font-size:13px" id="kad-nama">—</div>
+            <div style="font-size:11px;color:var(--text-faint)" id="kad-kelas">—</div>
+            <div style="margin-top:8px">
+              <span class="badge badge-primary" id="kad-jawatan" style="font-size:11px">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PAGE: PROFIL ──────────────────────────── -->
+    <section id="page-profil" class="hidden">
+      <div class="page-title">Pratonton Profil Lengkap</div>
+      <div class="page-sub">Semak semua maklumat sebelum menyerahkan kepada pentadbir.</div>
+
+      <div class="profile-grid" style="flex-wrap:wrap">
+        <div style="flex:1;min-width:300px">
+          <div class="card" id="profil-card">
+            <!-- diisi oleh JS -->
+          </div>
+        </div>
+        <div style="width:220px">
+          <div class="card">
+            <div class="card-title">✅ Status Kelengkapan</div>
+            <div id="checklist-items"><!-- diisi JS --></div>
+            <div class="divider"></div>
+            <div style="font-size:12px;color:var(--text-faint);margin-bottom:6px">Kemajuan Profil</div>
+            <div class="progress">
+              <div class="progress-bar" id="profil-progress" style="width:0%;background:var(--primary)"></div>
+            </div>
+            <div style="font-size:12px;color:var(--text-faint);margin-top:5px" id="profil-progress-label">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PAGE: PEER ASSESSMENT ─────────────────── -->
+    <section id="page-peer" class="hidden">
+      <div class="page-title">Penilaian Rakan Sebaya (Peer)</div>
+      <div class="page-sub">Berikan penilaian ikhlas kepada ahli AJK dalam kumpulan yang sama sahaja.</div>
+
+      <div id="peer-alert" class="hidden"></div>
+
+      <!-- Senarai rakan -->
+      <div id="peer-list-view">
+        <div id="peer-list-items"><!-- diisi JS --></div>
+      </div>
+
+      <!-- Borang penilaian seorang rakan -->
+      <div id="peer-form-view" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div>
+            <div class="page-title" id="peer-form-name" style="font-size:17px">—</div>
+            <div style="font-size:12px;color:var(--text-faint)" id="peer-form-role">—</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="closePeerForm()">← Kembali</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Borang Penilaian</div>
+          <div id="peer-criteria-rows"><!-- diisi JS --></div>
+          <div class="score-total">
+            <span style="font-weight:700;color:var(--primary)">Jumlah Markah</span>
+            <span class="score-total-val"><span id="peer-total">0</span> / 25</span>
+          </div>
+          <div class="btn-row" style="margin-top:16px">
+            <button class="btn btn-success" id="btn-submit-peer" onclick="submitPeer()">
+              ✅ Hantar Penilaian
+            </button>
+          </div>
+          <div id="peer-form-alert" class="hidden" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PAGE: RINGKASAN ────────────────────────── -->
+    <section id="page-ringkasan" class="hidden">
+      <div class="page-title">Ringkasan Penilaian</div>
+      <div class="page-sub">Paparan markah penilaian rakan yang telah anda hantar dan markah yang anda terima.</div>
+
+      <div class="stat-grid" id="ringkasan-stats"><!-- diisi JS --></div>
+
+      <div class="card" id="ringkasan-table-card">
+        <div class="card-title">Rekod Penilaian Yang Dihantar</div>
+        <div id="ringkasan-table-wrap"><!-- diisi JS --></div>
+      </div>
+
+      <div class="card" id="ringkasan-received-card">
+        <div class="card-title">Markah Yang Anda Terima Daripada Rakan</div>
+        <div id="ringkasan-received-wrap"><!-- diisi JS --></div>
+      </div>
+    </section>
+
+  </main>
+</div><!-- /#app -->
+
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════ -->
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+// !! GANTIKAN URL INI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA !!
+const GAS_URL = "https://script.google.com/macros/s/PASTE_YOUR_DEPLOYMENT_ID_HERE/exec";
+
+// ── STATE ─────────────────────────────────────────────────────
+let student     = null;   // data pelajar semasa
+let allStudents = [];     // semua pelajar (untuk peer group)
+let photoBase64 = null;   // gambar dipilih (base64)
+let photoMime   = null;
+let peerGroup   = [];     // rakan dalam kumpulan sama
+let peerScores  = {};     // { nokp: { tanggungjawab:3, ... } }
+let peerSaved   = {};     // { nokp: true } — sudah dihantar
+let activePeer  = null;   // nokp rakan yang sedang dinilai
+let currentPage = "biodata";
+
+const CRITERIA = [
+  { id:"tanggungjawab", label:"Tanggungjawab & Komitmen",  desc:"Menjalankan tugas dengan penuh tanggungjawab" },
+  { id:"kerjasama",     label:"Kerjasama Berpasukan",      desc:"Bekerjasama dan membantu ahli kumpulan" },
+  { id:"komunikasi",    label:"Komunikasi Berkesan",       desc:"Menyampaikan idea dengan jelas dan tepat" },
+  { id:"kepimpinan",    label:"Kepimpinan & Inisiatif",    desc:"Mengambil inisiatif dan memimpin kumpulan" },
+  { id:"kreativiti",    label:"Kreativiti & Inovasi",      desc:"Mengemukakan idea-idea baharu dan segar" },
+];
+
+// ── UTILITY ───────────────────────────────────────────────────
+function showLoading(msg="Sila tunggu...") {
+  document.getElementById("loading-text").textContent = msg;
+  document.getElementById("loading-overlay").classList.remove("hidden");
+}
+function hideLoading() {
+  document.getElementById("loading-overlay").classList.add("hidden");
+}
+function showAlert(elId, type, msg) {
+  const el = document.getElementById(elId);
+  el.className = `alert alert-${type}`;
+  el.innerHTML = msg;
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 6000);
+}
+function cleanKP(kp) { return String(kp||"").replace(/[^0-9]/g,""); }
+function initials(nama) {
+  return (nama||"?").split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 }
 
-function onMarkahInput(el) {
-  const nokp = el.dataset.nokp;
-  const key = el.dataset.key;
-  const val = el.value === '' ? null : Math.min(100, Math.max(0, parseFloat(el.value) || 0));
-
-  if (!UNSAVED_MARKAH[nokp]) UNSAVED_MARKAH[nokp] = {};
-  UNSAVED_MARKAH[nokp][key] = val;
-  el.classList.add('changed');
-
-  // Live compute
-  const base = MARKAH_CACHE[nokp] || {};
-  const merged = { ...base, ...UNSAVED_MARKAH[nokp] };
-  const calc = hitungMarkahClient(merged);
-  const hasMark = Object.values(merged).some(v => v !== null && v !== undefined && v !== '');
-  const gred = hasMark ? tentukanGredClient(calc.jumlah) : '—';
-
-  if ($('c1-' + nokp)) $('c1-' + nokp).innerHTML = `<span style="font-size:12px">${hasMark ? calc.hpk1.toFixed(1) : '—'}</span>`;
-  if ($('c2-' + nokp)) $('c2-' + nokp).innerHTML = `<span style="font-size:12px">${hasMark ? calc.hpk2.toFixed(1) : '—'}</span>`;
-  if ($('c3-' + nokp)) $('c3-' + nokp).innerHTML = `<span style="font-size:12px">${hasMark ? calc.hpk3.toFixed(1) : '—'}</span>`;
-  if ($('tot-' + nokp)) $('tot-' + nokp).innerHTML = `<strong style="font-size:13px">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong>`;
-  if ($('gred-' + nokp)) $('gred-' + nokp).innerHTML = `<span class="${gredClass(gred)}">${gred}</span>`;
-
-  const $row = $('row-' + nokp);
-  if ($row) $row.style.background = '#FFFBF3';
-
-  // Update unsaved count
-  const count = Object.keys(UNSAVED_MARKAH).length;
-  const countEl = $('unsaved-count');
-  if (countEl) {
-    countEl.style.display = count > 0 ? 'inline-flex' : 'none';
-    countEl.textContent = count + ' pelajar belum disimpan';
-  }
+// ── GAS API CALL ──────────────────────────────────────────────
+async function gasGet(params) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${GAS_URL}?${qs}`);
+  return res.json();
+}
+async function gasPost(body) {
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type":"application/json" }
+  });
+  return res.json();
 }
 
-async function saveAllMarkah() {
-  const btn = $('btn-save-all');
-  if (!btn) return;
-  if (Object.keys(UNSAVED_MARKAH).length === 0) { notify('Tiada perubahan untuk disimpan.', 'info'); return; }
+// ── LOGIN ─────────────────────────────────────────────────────
+document.getElementById("kp-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleLogin();
+});
 
-  btn.disabled = true;
-  btn.textContent = 'Menyimpan...';
-
+async function handleLogin() {
+  const raw = document.getElementById("kp-input").value.trim();
+  const kp  = cleanKP(raw);
+  if (!kp || kp.length < 6) {
+    showAlert("login-alert","danger","⚠️ Sila masukkan No. Kad Pengenalan yang sah.");
+    return;
+  }
+  showLoading("Mengesahkan identiti pelajar...");
   try {
-    const rows = [];
-    for (const nokp of Object.keys(UNSAVED_MARKAH)) {
-      const p = PELAJAR_CACHE.find(x => x.nokp === nokp);
-      if (!p) continue;
-      const base = MARKAH_CACHE[nokp] || {};
-      const merged = { ...base, ...UNSAVED_MARKAH[nokp] };
-      rows.push({
-        nokp: p.nokp, nama: p.nama, kelas: p.kelas,
-        agiliran: p.agiliran,
-        kuiz: merged.kuiz ?? null, hp4: merged.hp4 ?? null,
-        hp5: merged.hp5 ?? null, hp3: merged.hp3 ?? null,
-        hp8: merged.hp8 ?? null,
-        dikemaskiniOleh: SESSION.user.nama
+    const r = await gasGet({ action:"login", nokp:kp });
+    if (!r.ok) { showAlert("login-alert","danger","❌ "+r.error); return; }
+    student = r.data;
+    await loadAllStudents();
+    loginSuccess();
+  } catch(e) {
+    showAlert("login-alert","danger","❌ Ralat sambungan. Semak URL GAS anda.");
+    console.error(e);
+  } finally { hideLoading(); }
+}
+
+function demoLogin() {
+  student = {
+    bil:"1", nama:"Ahmad Bin Hamid", nokp:"050112141234",
+    noGiliran:"2024001", kelas:"PISMP MT1", urlGambar:"",
+    jantina:"Lelaki", siri:"2024", jawatan:"Pengerusi", kumpulan:"2",
+    noDalamKumpulan:"1", alahan:"Tiada", ubatan:"Tiada",
+    noTelKecemasan:"0123456789"
+  };
+  allStudents = [
+    student,
+    { bil:"2", nama:"Siti Aminah Binti Yusof", nokp:"050505105678", noGiliran:"2024002",
+      kelas:"PISMP MT1", urlGambar:"", jantina:"Perempuan", siri:"2024",
+      jawatan:"Setiausaha", kumpulan:"2", noDalamKumpulan:"2", alahan:"Tiada", ubatan:"Tiada", noTelKecemasan:"0198765432" },
+    { bil:"3", nama:"Mohamad Faiz Bin Razali", nokp:"040304041234", noGiliran:"2024003",
+      kelas:"PISMP MT1", urlGambar:"", jantina:"Lelaki", siri:"2024",
+      jawatan:"Bendahari", kumpulan:"2", noDalamKumpulan:"3", alahan:"Tiada", ubatan:"Tiada", noTelKecemasan:"0112223333" },
+    { bil:"4", nama:"Nurul Izzah Binti Karim", nokp:"060606061234", noGiliran:"2024004",
+      kelas:"PISMP MT1", urlGambar:"", jantina:"Perempuan", siri:"2024",
+      jawatan:"AJK Aktiviti", kumpulan:"3", noDalamKumpulan:"1", alahan:"Tiada", ubatan:"Tiada", noTelKecemasan:"0134445555" },
+  ];
+  loginSuccess();
+}
+
+async function loadAllStudents() {
+  const r = await gasGet({ action:"students" });
+  if (r.ok) allStudents = r.data;
+}
+
+function loginSuccess() {
+  // Kira peer group
+  const myKP = cleanKP(student.nokp);
+  const myKumpulan = String(student.kumpulan||"").trim();
+  peerGroup = allStudents.filter(s => {
+    const theirKumpulan = String(s.kumpulan||"").trim();
+    return theirKumpulan && theirKumpulan === myKumpulan && cleanKP(s.nokp) !== myKP;
+  });
+
+  // Topbar
+  document.getElementById("tb-nama").textContent  = student.nama;
+  document.getElementById("tb-avatar").textContent = initials(student.nama);
+  document.getElementById("tb-kumpulan").textContent =
+    student.kumpulan ? `AJK Kumpulan ${student.kumpulan}` : "—";
+
+  // Kad gambar profil mini
+  document.getElementById("kad-nama").textContent    = student.nama;
+  document.getElementById("kad-kelas").textContent   = student.kelas || "—";
+  document.getElementById("kad-jawatan").textContent = student.jawatan || "—";
+  if (student.urlGambar) {
+    document.getElementById("kad-photo-wrap").innerHTML =
+      `<img src="${student.urlGambar}" class="profile-card-photo" style="margin:0 auto 12px;display:block" alt="Profil"/>`;
+  }
+
+  // Isi biodata form
+  document.getElementById("bd-nokp").value      = student.nokp;
+  document.getElementById("bd-nama").value      = student.nama;
+  document.getElementById("bd-giliran").value   = student.noGiliran;
+  document.getElementById("bd-kelas").value     = student.kelas;
+  document.getElementById("bd-jantina").value   = student.jantina;
+  document.getElementById("bd-siri").value      = student.siri;
+  document.getElementById("bd-jawatan").value   = student.jawatan;
+  document.getElementById("bd-kumpulan").value  = student.kumpulan;
+  document.getElementById("bd-no-kumpulan").value = student.noDalamKumpulan;
+  document.getElementById("bd-alahan").value    = student.alahan;
+  document.getElementById("bd-ubatan").value    = student.ubatan;
+  document.getElementById("bd-tel").value       = student.noTelKecemasan;
+
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  gotoPage("biodata");
+}
+
+function handleLogout() {
+  student = null; allStudents = []; peerGroup = [];
+  peerScores = {}; peerSaved = {}; activePeer = null;
+  photoBase64 = null; photoMime = null;
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("login-screen").classList.remove("hidden");
+  document.getElementById("kp-input").value = "";
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function gotoPage(page) {
+  const pages = ["biodata","gambar","profil","peer","ringkasan"];
+  pages.forEach(p => {
+    document.getElementById("page-"+p).classList.toggle("hidden", p!==page);
+  });
+  document.querySelectorAll(".nav-item").forEach(el => {
+    el.classList.toggle("active", el.dataset.page === page);
+  });
+  currentPage = page;
+  if (page === "profil")    renderProfil();
+  if (page === "peer")      renderPeerList();
+  if (page === "ringkasan") renderRingkasan();
+}
+
+// ── SAVE BIODATA ──────────────────────────────────────────────
+async function saveBiodata() {
+  const nama  = document.getElementById("bd-nama").value.trim();
+  const jawatan = document.getElementById("bd-jawatan").value.trim();
+  const kumpulan = document.getElementById("bd-kumpulan").value.trim();
+  const tel   = document.getElementById("bd-tel").value.trim();
+  if (!nama || !jawatan || !kumpulan || !tel) {
+    showAlert("biodata-alert","danger","⚠️ Sila lengkapkan semua medan wajib (*).");
+    return;
+  }
+
+  const biodata = {
+    noGiliran: document.getElementById("bd-giliran").value.trim(),
+    kelas:     document.getElementById("bd-kelas").value.trim(),
+    jantina:   document.getElementById("bd-jantina").value,
+    siri:      document.getElementById("bd-siri").value.trim(),
+    jawatan, kumpulan,
+    noDalamKumpulan: document.getElementById("bd-no-kumpulan").value.trim(),
+    alahan:    document.getElementById("bd-alahan").value.trim(),
+    ubatan:    document.getElementById("bd-ubatan").value.trim(),
+    noTelKecemasan: tel,
+  };
+
+  showLoading("Menyimpan biodata...");
+  try {
+    const r = await gasPost({ action:"saveBiodata", nokp:student.nokp, biodata });
+    if (r.ok) {
+      // Kemaskini state tempatan
+      Object.assign(student, biodata);
+      student.nama = nama;
+      student.kumpulan = kumpulan;
+      document.getElementById("tb-kumpulan").textContent = `AJK Kumpulan ${kumpulan}`;
+      document.getElementById("kad-nama").textContent    = nama;
+      document.getElementById("kad-kelas").textContent   = biodata.kelas || "—";
+      document.getElementById("kad-jawatan").textContent = jawatan;
+      // Kira semula peer group
+      const myKP = cleanKP(student.nokp);
+      peerGroup = allStudents.filter(s => {
+        const k = String(s.kumpulan||"").trim();
+        return k && k === kumpulan && cleanKP(s.nokp) !== myKP;
       });
+      showAlert("biodata-alert","success","✅ Biodata berjaya disimpan ke Google Sheets.");
+    } else {
+      showAlert("biodata-alert","danger","❌ "+r.error);
     }
-
-    const res = await gasCall('saveBatchMarkah', { rows });
-
-    // Refresh cache
-    const mRes = await gasCall('getAllMarkah');
-    MARKAH_CACHE = {};
-    (mRes.data || []).forEach(m => { MARKAH_CACHE[m.nokp] = m; });
-    UNSAVED_MARKAH = {};
-
-    notify(res.message || 'Markah disimpan!', 'success');
-    renderMarkah();
-
-  } catch (e) {
-    notify('Ralat: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = icoSave() + ' Simpan Semua'; }
-  }
+  } catch(e) {
+    showAlert("biodata-alert","danger","❌ Ralat sambungan. Cuba sebentar lagi.");
+  } finally { hideLoading(); }
 }
 
-// ================================================================
-// SCREEN: LAPORAN
-// ================================================================
-async function renderLaporan() {
-  html('content', `<div style="text-align:center;padding:40px"><div class="spinner" style="margin:auto"></div><div style="margin-top:12px;font-size:13px;color:var(--text-secondary)">Memuatkan laporan...</div></div>`);
-  try {
-    const res = await gasCall('getLaporan');
-    const rows = res.data || [];
-    const withMark = rows.filter(r => r.jumlah !== null && r.jumlah !== undefined);
-
-    // Grade distribution
-    const gradeOrder = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
-    const gradeDist = {};
-    gradeOrder.forEach(g => gradeDist[g] = 0);
-    withMark.forEach(r => { if (r.gred) gradeDist[r.gred] = (gradeDist[r.gred] || 0) + 1; });
-
-    // Histogram buckets
-    const buckets = Array(10).fill(0);
-    withMark.forEach(r => { const i = Math.min(9, Math.floor(r.jumlah / 10)); buckets[i]++; });
-
-    // Component averages
-    const compKeys = ['kuiz','hp4','hp5','hp3','hp8'];
-    const compLabels = ['Kuiz','HP4','HP5','HP3','HP8'];
-    const compAvg = compKeys.map(k => {
-      const vals = withMark.map(r => parseFloat(r[k])).filter(v => !isNaN(v) && v > 0);
-      return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
-    });
-
-    html('content', `
-      <div class="tabs">
-        <div class="tab active" id="tab-ov" onclick="laporanTab('overview')">Ringkasan</div>
-        <div class="tab" id="tab-det" onclick="laporanTab('detail')">Senarai Lengkap</div>
-      </div>
-      <div id="laporan-overview">
-        <div class="grid-3" style="margin-bottom:14px">
-          ${['PBKK','PIMK','PMO'].map(k => {
-            const kRows = withMark.filter(r => r.kelas === k);
-            const avg = kRows.length ? (kRows.reduce((s, r) => s + r.jumlah, 0) / kRows.length).toFixed(1) : '—';
-            const total = rows.filter(r => r.kelas === k).length;
-            return `<div class="stat-card"><div class="lbl">${k}</div><div class="val">${total}</div><div class="sub">Purata: ${avg}</div></div>`;
-          }).join('')}
-        </div>
-        <div class="grid-2">
-          <div class="card"><div class="card-title" style="margin-bottom:12px">Agihan Gred</div><canvas id="ch-lap1" height="200"></canvas></div>
-          <div class="card"><div class="card-title" style="margin-bottom:12px">Lengkung Taburan Markah</div><canvas id="ch-lap2" height="200"></canvas></div>
-        </div>
-        <div class="card"><div class="card-title" style="margin-bottom:12px">Purata Markah Per Komponen</div><canvas id="ch-lap3" height="130"></canvas></div>
-      </div>
-      <div id="laporan-detail" class="hidden">
-        <div class="card card-p0">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Nama</th><th>Kelas</th>
-                <th>Kuiz</th><th>HP4</th><th>HP5</th><th>HP3</th><th>HP8</th>
-                <th>HPK1</th><th>HPK2</th><th>HPK3</th><th>Jumlah</th><th>Gred</th>
-              </tr></thead>
-              <tbody>
-                ${rows.map((r, i) => `<tr>
-                  <td style="font-size:11px;color:var(--text-secondary)">${i+1}</td>
-                  <td style="font-size:12px;font-weight:500;max-width:200px">${r.nama}</td>
-                  <td><span class="badge ${kelasBadge(r.kelas)}">${r.kelas}</span></td>
-                  <td>${r.kuiz ?? '—'}</td><td>${r.hp4 ?? '—'}</td><td>${r.hp5 ?? '—'}</td>
-                  <td>${r.hp3 ?? '—'}</td><td>${r.hp8 ?? '—'}</td>
-                  <td>${r.hpk1 !== undefined && r.hpk1 !== null ? Number(r.hpk1).toFixed(1) : '—'}</td>
-                  <td>${r.hpk2 !== undefined && r.hpk2 !== null ? Number(r.hpk2).toFixed(1) : '—'}</td>
-                  <td>${r.hpk3 !== undefined && r.hpk3 !== null ? Number(r.hpk3).toFixed(1) : '—'}</td>
-                  <td><strong>${r.jumlah !== null && r.jumlah !== undefined ? Number(r.jumlah).toFixed(1) : '—'}</strong></td>
-                  <td><span class="${gredClass(r.gred || '—')}">${r.gred || '—'}</span></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>`);
-
-    setTimeout(() => {
-      const gActive = gradeOrder.filter(g => gradeDist[g] > 0);
-      new Chart($('ch-lap1'), {
-        type:'bar',
-        data:{ labels:gActive, datasets:[{ data:gActive.map(g => gradeDist[g]),
-          backgroundColor:gActive.map(g => g.startsWith('A') ? '#97C459' : g.startsWith('B') ? '#85B7EB' : g.startsWith('C') ? '#EF9F27' : g.startsWith('D') ? '#E24B4A' : '#A32D2D'),
-          borderRadius:5, borderSkipped:false }]},
-        options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
-      });
-      new Chart($('ch-lap2'), {
-        type:'bar',
-        data:{ labels:['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'],
-          datasets:[{ data:buckets, backgroundColor:'#378ADD', borderRadius:4, borderSkipped:false }]},
-        options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } } } }
-      });
-      new Chart($('ch-lap3'), {
-        type:'bar',
-        data:{ labels:compLabels, datasets:[{
-          label:'Purata', data:compAvg,
-          backgroundColor:['#378ADD','#1D9E75','#1D9E75','#EF9F27','#EF9F27'],
-          borderRadius:5, borderSkipped:false }]},
-        options:{ indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true, max:100 } } }
-      });
-    }, 100);
-
-    window.laporanTab = function(tab) {
-      $('tab-ov').classList.toggle('active', tab === 'overview');
-      $('tab-det').classList.toggle('active', tab === 'detail');
-      $('laporan-overview').classList.toggle('hidden', tab !== 'overview');
-      $('laporan-detail').classList.toggle('hidden', tab !== 'detail');
-    };
-
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
-
-// ================================================================
-// SCREEN: PENILAIAN RAKAN (Pensyarah lihat)
-// ================================================================
-async function renderPeerView() {
-  html('content', `<div style="text-align:center;padding:40px"><div class="spinner" style="margin:auto"></div></div>`);
-  try {
-    const res = await gasCall('getPeerRatings', {});
-    const allRatings = res.data || [];
-
-    html('content', `
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-header">
-          <div><div class="card-title">Penilaian Rakan Sebaya</div>
-          <div class="card-sub">Kepimpinan · Kerjasama · Komunikasi · Komitmen · Sahsiah</div></div>
-          <select id="f-peer-kelas" onchange="filterPeerCards()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;outline:none;background:white;">
-            <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-3" id="peer-grid"></div>`);
-
-    window._allPeerRatings = allRatings;
-    window.filterPeerCards = function() { buildPeerCards($('f-peer-kelas').value); };
-    buildPeerCards('Semua');
-
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
-
-function buildPeerCards(kls) {
-  const allRatings = window._allPeerRatings || [];
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const filtered = PELAJAR_CACHE.filter(p => kls === 'Semua' || p.kelas === kls);
-
-  html('peer-grid', filtered.map(p => {
-    const ratings = allRatings.filter(r => r['Target_ID'] === p.agiliran);
-    const avgDims = DIMS.map(d => {
-      const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-    });
-    const avg = avgDims.reduce((a, b) => a + b, 0) / 5;
-    const [bg, tc] = avatarColor(p.nama);
-    return `<div class="card" style="cursor:pointer" onclick="modalPeerDetail('${p.agiliran}')">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <div class="avatar" style="width:36px;height:36px;font-size:12px;background:${bg};color:${tc}">${getInitials(p.nama)}</div>
-        <div>
-          <div style="font-size:12px;font-weight:600">${p.nama.split(' ').slice(0,3).join(' ')}</div>
-          <div style="font-size:11px;color:var(--text-secondary)">${p.kelas} · ${ratings.length} penilaian</div>
-        </div>
-      </div>
-      <canvas id="sp-${p.nokp}" height="150"></canvas>
-      <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--text-secondary)">
-        Purata: <strong>${avg.toFixed(1)}/5</strong>
-      </div>
-    </div>`;
-  }).join(''));
-
-  setTimeout(() => {
-    filtered.forEach(p => {
-      const ratings = allRatings.filter(r => r['Target_ID'] === p.agiliran);
-      const avgDims = DIMS.map(d => {
-        const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-      });
-      buildSpider('sp-' + p.nokp, DIMS, avgDims);
-    });
-  }, 50);
-}
-
-// ================================================================
-// SCREEN: PELAJAR — BIODATA
-// ================================================================
-async function renderBio() {
-  const u = SESSION.user;
-  showLoading('Memuatkan biodata...');
-  let bio = {};
-  try {
-    const res = await gasCall('getBiodata', { nokp: u.nokp });
-    bio = res.data || {};
-  } catch(e) {}
-  hideLoading();
-
-  const [bg, tc] = avatarColor(u.nama);
-  html('content', `
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px">Maklumat Peribadi</div>
-        <div style="text-align:center;margin-bottom:16px">
-          <div class="avatar-lg" style="background:${bg};color:${tc}" id="bio-av-prev">
-            ${bio.urlGambar ? `<img src="${bio.urlGambar}"/>` : getInitials(u.nama)}
-          </div>
-          <div style="font-size:15px;font-weight:600">${u.nama}</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:3px">${u.kelas} | ${u.agiliran}</div>
-        </div>
-        <hr class="divider">
-        <div class="info-row"><div class="info-label">No. Kad Pengenalan</div><div class="info-value">${u.nokp}</div></div>
-        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${u.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">Kelas</div><div class="info-value">${u.kelas}</div></div>
-        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${u.jantina === 'L' ? 'Lelaki' : 'Perempuan'}</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px">Kemaskini Biodata</div>
-        <div class="photo-drop" onclick="$('file-photo').click()">
-          <div id="photo-prev">
-            ${bio.urlGambar ? `<img src="${bio.urlGambar}" class="preview"/>` : `<div style="font-size:30px;opacity:.35;margin-bottom:6px">📷</div>`}
-            <div style="font-size:12px;color:var(--text-secondary)">Klik untuk muat naik gambar</div>
-            <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">JPG / PNG ≤ 2MB</div>
-          </div>
-        </div>
-        <input type="file" id="file-photo" accept="image/*" style="display:none" onchange="handlePhoto(event)"/>
-
-        <div class="form-group">
-          <label>Jawatan dalam Kumpulan</label>
-          <select id="bio-jawatan">
-            <option value="">— Pilih Jawatan —</option>
-            ${['Pengerusi','Setiausaha','Bendahari','Ahli'].map(j =>
-              `<option ${bio.jawatan === j ? 'selected' : ''}>${j}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Kumpulan</label>
-          <select id="bio-kumpulan">
-            <option value="">— Pilih Kumpulan —</option>
-            ${[1,2,3,4,5,6,7,8,9,10].map(n =>
-              `<option ${bio.kumpulan == n ? 'selected' : ''}>Kumpulan ${n}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>No. Dalam Kumpulan</label>
-          <input type="number" id="bio-nodlm" min="1" max="20" value="${bio.noDlmKumpulan || ''}" placeholder="1"/>
-        </div>
-        <div class="form-group">
-          <label>Alahan / Masalah Kesihatan</label>
-          <textarea id="bio-alahan" rows="2" placeholder="Tiada">${bio.alahan || ''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>Ubat-ubatan</label>
-          <textarea id="bio-ubat" rows="2" placeholder="Tiada">${bio.ubat || ''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>No. Tel Kecemasan</label>
-          <input type="tel" id="bio-notel" value="${bio.noTelKecemasan || ''}" placeholder="01X-XXXXXXXX"/>
-        </div>
-        <button class="btn btn-primary btn-block" id="btn-save-bio" onclick="saveBio()">Simpan Biodata</button>
-      </div>
-    </div>`);
-
-  window._pendingPhoto = bio.urlGambar || null;
-}
-
-function handlePhoto(e) {
+// ── PHOTO ─────────────────────────────────────────────────────
+function handlePhotoSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { alert('Gambar melebihi 2MB.'); return; }
+  if (file.size > 5 * 1024 * 1024) {
+    showAlert("gambar-alert","danger","⚠️ Saiz gambar melebihi 5MB. Sila pilih gambar yang lebih kecil.");
+    return;
+  }
   const reader = new FileReader();
   reader.onload = ev => {
-    window._pendingPhoto = ev.target.result;
-    $('photo-prev').innerHTML = `<img src="${window._pendingPhoto}" class="preview"/>><div style="font-size:12px;color:var(--text-secondary)">Gambar dipilih</div>`;
-    $('bio-av-prev').innerHTML = `<img src="${window._pendingPhoto}"/>`;
+    const result = ev.target.result;
+    photoBase64  = result.split(",")[1];
+    photoMime    = file.type;
+    document.getElementById("photo-placeholder").classList.add("hidden");
+    document.getElementById("photo-preview-wrap").classList.remove("hidden");
+    document.getElementById("photo-preview-img").src = result;
+    document.getElementById("photo-zone").classList.add("has-photo");
+    document.getElementById("btn-upload-photo").disabled = false;
+    // Kemaskini kad profil
+    document.getElementById("kad-photo-wrap").innerHTML =
+      `<img src="${result}" class="profile-card-photo" style="margin:0 auto 12px;display:block" alt="Profil"/>`;
   };
   reader.readAsDataURL(file);
 }
 
-async function saveBio() {
-  const u = SESSION.user;
-  const btn = $('btn-save-bio');
-  btn.disabled = true;
-  btn.textContent = 'Menyimpan...';
-  try {
-    await gasCall('saveBiodata', {
-      nokp: u.nokp, nama: u.nama, kelas: u.kelas, agiliran: u.agiliran,
-      jawatan: $('bio-jawatan').value,
-      kumpulan: $('bio-kumpulan').value,
-      noDlmKumpulan: $('bio-nodlm').value,
-      alahan: $('bio-alahan').value,
-      ubat: $('bio-ubat').value,
-      noTelKecemasan: $('bio-notel').value,
-      urlGambar: window._pendingPhoto || ''
-    });
-    notify('Biodata disimpan!', 'success');
-  } catch(e) {
-    notify('Ralat: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Simpan Biodata';
-  }
+function clearPhoto() {
+  photoBase64 = null; photoMime = null;
+  document.getElementById("photo-input").value = "";
+  document.getElementById("photo-preview-wrap").classList.add("hidden");
+  document.getElementById("photo-placeholder").classList.remove("hidden");
+  document.getElementById("photo-zone").classList.remove("has-photo");
+  document.getElementById("btn-upload-photo").disabled = true;
+  document.getElementById("kad-photo-wrap").innerHTML =
+    `<div style="width:96px;height:120px;background:#e0ddd7;border-radius:8px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px">👤</div>`;
 }
 
-// ================================================================
-// SCREEN: PELAJAR — NILAI RAKAN
-// ================================================================
-async function renderPeerHantar() {
-  const u = SESSION.user;
-  showLoading('Memuatkan data kumpulan...');
-  let bio = {}, peers = [], submitted = [];
+async function uploadPhoto() {
+  if (!photoBase64) return;
+  showLoading("Memuat naik gambar ke Google Drive...");
   try {
-    const bRes = await gasCall('getBiodata', { nokp: u.nokp });
-    bio = bRes.data || {};
-
-    if (bio.kumpulan) {
-      const pRes = await gasCall('getKumpulanPeer', {
-        nokp: u.nokp, kelas: u.kelas, kumpulan: bio.kumpulan
-      });
-      peers = pRes.data || [];
-
-      const rRes = await gasCall('getPeerRatings', { reviewerId: u.agiliran });
-      submitted = (rRes.data || []).map(r => r['Target_ID']);
+    const r = await gasPost({
+      action:"uploadPhoto",
+      nokp: student.nokp,
+      nama: student.nama,
+      base64: photoBase64,
+      mimeType: photoMime
+    });
+    if (r.ok) {
+      student.urlGambar = r.data.url;
+      showAlert("gambar-alert","success","✅ Gambar berjaya disimpan ke Google Drive.");
+    } else {
+      showAlert("gambar-alert","danger","❌ "+r.error);
     }
-  } catch(e) {}
-  hideLoading();
+  } catch(e) {
+    showAlert("gambar-alert","danger","❌ Ralat sambungan. Cuba sebentar lagi.");
+  } finally { hideLoading(); }
+}
 
-  if (!bio.kumpulan) {
-    html('content', `
-      <div class="card">
-        <div class="alert alert-info"><span>ℹ</span><span>Sila lengkapkan biodata dan pilih kumpulan terlebih dahulu.</span></div>
-        <button class="btn btn-primary" onclick="navigateTo('bio')">Ke Biodata</button>
-      </div>`);
+// ── PROFIL RENDER ─────────────────────────────────────────────
+function renderProfil() {
+  const photoHtml = student.urlGambar
+    ? `<img src="${student.urlGambar}" style="width:80px;height:100px;object-fit:cover;border-radius:8px;border:2px solid var(--border);flex-shrink:0" alt="Profil"/>`
+    : `<div style="width:80px;height:100px;background:#eee;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0">👤</div>`;
+
+  document.getElementById("profil-card").innerHTML = `
+    <div class="card-title">Maklumat Profil</div>
+    <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:16px">
+      ${photoHtml}
+      <div>
+        <div style="font-size:18px;font-weight:700">${student.nama||"—"}</div>
+        <div style="color:var(--text-faint);font-size:13px;margin-top:3px">${student.nokp}</div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <span class="badge badge-primary">${student.jawatan||"—"}</span>
+          <span class="badge badge-success">Kumpulan ${student.kumpulan||"—"}</span>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    ${[
+      ["No. Angka Giliran", student.noGiliran],
+      ["Kelas", student.kelas],
+      ["Jantina", student.jantina],
+      ["Siri", student.siri],
+      ["No. Dalam Kumpulan", student.noDalamKumpulan],
+      ["Alahan / Masalah Kesihatan", student.alahan||"Tiada"],
+      ["Ubat-ubatan", student.ubatan||"Tiada"],
+      ["No. Telefon Kecemasan", student.noTelKecemasan],
+    ].map(([k,v])=>`
+      <div class="profile-info-row">
+        <span style="color:var(--text-faint)">${k}</span>
+        <span style="font-weight:600;text-align:right;max-width:60%">${v||"—"}</span>
+      </div>`).join("")}
+  `;
+
+  // Checklist
+  const checks = [
+    ["Nama & No. KP",       !!(student.nama && student.nokp)],
+    ["Maklumat Kelas",      !!student.kelas],
+    ["Jawatan AJK",         !!student.jawatan],
+    ["Kumpulan AJK",        !!student.kumpulan],
+    ["Gambar Profil",       !!student.urlGambar],
+    ["No. Telefon Kecemasan", !!student.noTelKecemasan],
+  ];
+  const done  = checks.filter(c=>c[1]).length;
+  const pct   = Math.round((done / checks.length) * 100);
+  document.getElementById("checklist-items").innerHTML = checks.map(([lbl,ok])=>`
+    <div class="checklist-item">
+      <span>${lbl}</span>
+      <span class="${ok?"check-ok":"check-no"}">${ok?"✅":"⚠️"}</span>
+    </div>`).join("");
+  document.getElementById("profil-progress").style.width = pct+"%";
+  document.getElementById("profil-progress").style.background = pct===100 ? "var(--success)" : "var(--primary)";
+  document.getElementById("profil-progress-label").textContent = pct===100 ? "Profil Lengkap ✅" : `${pct}% — Belum Lengkap`;
+}
+
+// ── PEER LIST RENDER ──────────────────────────────────────────
+function renderPeerList() {
+  document.getElementById("peer-list-view").classList.remove("hidden");
+  document.getElementById("peer-form-view").classList.add("hidden");
+
+  if (!student.kumpulan) {
+    document.getElementById("peer-alert").className = "alert alert-warning";
+    document.getElementById("peer-alert").innerHTML =
+      "⚠️ Maklumat kumpulan AJK anda belum diisi. Sila kemaskini biodata dahulu.";
+    document.getElementById("peer-alert").classList.remove("hidden");
+    document.getElementById("peer-list-items").innerHTML = "";
     return;
   }
 
-  html('content', `
-    <div class="card" style="margin-bottom:12px">
-      <div class="card-title">Kumpulan ${bio.kumpulan} — ${u.kelas}</div>
-      <div class="card-sub">${peers.length} rakan dalam kumpulan | Jawatan anda: ${bio.jawatan || 'Ahli'}</div>
-    </div>
-    <div class="grid-2" id="peer-rate-grid">
-      ${peers.length === 0
-        ? `<div class="empty-state"><div class="ic">👥</div><p>Tiada rakan dalam kumpulan. Pastikan ahli lain sudah mengisi biodata mereka.</p></div>`
-        : peers.map(peer => {
-          const done = submitted.includes(peer.agiliran);
-          const [bg, tc] = avatarColor(peer.nama);
-          const pbio = peer.biodata || {};
-          return `<div class="card">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <div class="avatar" style="width:38px;height:38px;font-size:13px;background:${bg};color:${tc}">
-                ${pbio.urlGambar ? `<img src="${pbio.urlGambar}"/>` : getInitials(peer.nama)}
-              </div>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600">${peer.nama.split(' ').slice(0,3).join(' ')}</div>
-                <div style="font-size:11px;color:var(--text-secondary)">${peer.kelas} | ${pbio.jawatan || 'Ahli'}</div>
-              </div>
-              ${done ? `<span class="badge b-green">✓ Dinilai</span>` : ''}
-            </div>
-            ${done
-              ? `<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:10px">Anda sudah menilai rakan ini.</div>`
-              : `<div id="rf-${peer.nokp}">
-                  ${['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'].map(dim => `
-                  <div style="margin-bottom:10px">
-                    <div style="font-size:12px;font-weight:500;margin-bottom:5px;color:var(--text-secondary)">${dim}</div>
-                    <div class="star-group" data-dim="${dim}">
-                      ${[1,2,3,4,5].map(n => `<div class="star" data-val="${n}" onclick="pickStar(this,${n})">${n}</div>`).join('')}
-                    </div>
-                  </div>`).join('')}
-                  <button class="btn btn-primary btn-block" style="margin-top:6px"
-                    onclick="submitRating('${peer.nokp}','${peer.agiliran}','${bio.kumpulan}')">Hantar Penilaian</button>
-                </div>`}
-          </div>`;
-        }).join('')
-      }`);
-}
+  document.getElementById("peer-alert").className = "alert alert-info";
+  document.getElementById("peer-alert").innerHTML =
+    `📋 Anda dalam <strong>Kumpulan ${student.kumpulan}</strong>. Terdapat <strong>${peerGroup.length}</strong> rakan untuk dinilai.`;
+  document.getElementById("peer-alert").classList.remove("hidden");
 
-function pickStar(el, val) {
-  const group = el.closest('.star-group');
-  group.querySelectorAll('.star').forEach(s => {
-    s.classList.toggle('on', parseInt(s.dataset.val) <= val);
-  });
-  group.dataset.sel = val;
-}
-
-async function submitRating(targetNokp, targetAgiliran, kumpulan) {
-  const container = $('rf-' + targetNokp);
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const payload = {
-    reviewerId: SESSION.user.agiliran,
-    targetId: targetAgiliran,
-    siri: 1, kumpulan
-  };
-  let valid = true;
-  DIMS.forEach(d => {
-    const group = container.querySelector(`.star-group[data-dim="${d}"]`);
-    if (!group || !group.dataset.sel) { valid = false; return; }
-    payload[d.toLowerCase()] = parseFloat(group.dataset.sel);
-  });
-  // Map to correct keys
-  payload.kepimpinan = payload.kepimpinan;
-  payload.kerjasama  = payload.kerjasama;
-  payload.komunikasi = payload.komunikasi;
-  payload.komitmen   = payload.komitmen;
-  payload.sahsiah    = payload.sahsiah;
-
-  if (!valid) { notify('Sila beri markah untuk semua dimensi!', 'error'); return; }
-
-  try {
-    await gasCall('savePeerRating', payload);
-    notify('Penilaian dihantar!', 'success');
-    renderPeerHantar();
-  } catch(e) { notify('Ralat: ' + e.message, 'error'); }
-}
-
-// ================================================================
-// SCREEN: PELAJAR — MARKAH SAYA
-// ================================================================
-async function renderMarkahSaya() {
-  const u = SESSION.user;
-  showLoading('Memuatkan markah...');
-  let markah = null, ratings = [];
-  try {
-    const mRes = await gasCall('getMarkah', { nokp: u.nokp });
-    markah = mRes.data;
-    const rRes = await gasCall('getPeerRatings', { targetId: u.agiliran });
-    ratings = rRes.data || [];
-  } catch(e) {}
-  hideLoading();
-
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const avgDims = DIMS.map(d => {
-    const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  });
-
-  const hm = markah;
-  const gred = hm ? hm.gred : '—';
-
-  html('content', `
-    <div class="grid-4" style="margin-bottom:14px">
-      <div class="stat-card"><div class="lbl">HPK1 — Kuiz</div><div class="val">${hm ? Number(hm.hpk1).toFixed(1) : '—'}</div><div class="sub">Wajaran 10%</div></div>
-      <div class="stat-card"><div class="lbl">HPK2 — Amali I</div><div class="val">${hm ? Number(hm.hpk2).toFixed(1) : '—'}</div><div class="sub">Wajaran 60%</div></div>
-      <div class="stat-card"><div class="lbl">HPK3 — Amali II</div><div class="val">${hm ? Number(hm.hpk3).toFixed(1) : '—'}</div><div class="sub">Wajaran 30%</div></div>
-      <div class="stat-card">
-        <div class="lbl">Jumlah / Gred</div>
-        <div class="val ${gredClass(gred)}">${hm ? Number(hm.jumlah).toFixed(1) : '—'}</div>
-        <div class="sub">Gred: <strong class="${gredClass(gred)}">${gred}</strong></div>
-      </div>
-    </div>
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px">Perincian Markah</div>
-        ${hm ? `
-          ${[
-            ['HPK1 — Kuiz (HP1)', hm.kuiz, hm.hpk1, 'var(--primary)'],
-            ['HPK2 — Amali I (HP4 × 30%)', hm.hp4, (hm.hp4||0)*0.30, 'var(--success)'],
-            ['HPK2 — Amali I (HP5 × 30%)', hm.hp5, (hm.hp5||0)*0.30, 'var(--success)'],
-            ['HPK3 — Amali II (HP3 × 15%)', hm.hp3, (hm.hp3||0)*0.15, 'var(--warning)'],
-            ['HPK3 — Amali II (HP8 × 15%)', hm.hp8, (hm.hp8||0)*0.15, 'var(--warning)'],
-          ].map(([label, raw, contrib, color]) => `
-          <div class="mark-row">
-            <div style="flex:1;font-size:12px">${label}</div>
-            <div style="width:60px;text-align:right;font-size:12px;color:var(--text-secondary)">${raw ?? '—'}/100</div>
-            <div style="width:55px;text-align:right;font-size:13px;font-weight:600;color:${color}">${Number(contrib).toFixed(2)}</div>
-          </div>`).join('')}
-          <hr class="divider">
-          <div class="mark-row" style="border-bottom:none">
-            <div style="flex:1;font-size:14px;font-weight:600">Jumlah Keseluruhan</div>
-            <div style="font-size:20px;font-weight:700" class="${gredClass(gred)}">${Number(hm.jumlah).toFixed(1)}</div>
-            <div style="width:55px;text-align:right;font-size:18px;font-weight:700" class="${gredClass(gred)}">${gred}</div>
-          </div>` : `<div class="empty-state"><div class="ic">📋</div><p>Markah belum direkod oleh pensyarah.</p></div>`}
-      </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px">Penilaian Rakan Sebaya</div>
-        ${ratings.length > 0
-          ? `<canvas id="sp-saya" height="220"></canvas>
-             <div style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-secondary)">
-               ${ratings.length} penilaian diterima
-             </div>`
-          : `<div class="empty-state"><div class="ic">⭐</div><p>Belum ada penilaian rakan diterima.</p></div>`}
-      </div>
-    </div>`);
-
-  if (ratings.length > 0) {
-    setTimeout(() => buildSpider('sp-saya', DIMS, avgDims), 100);
+  if (peerGroup.length === 0) {
+    document.getElementById("peer-list-items").innerHTML =
+      `<div class="alert alert-warning">ℹ️ Tiada ahli lain dalam kumpulan ${student.kumpulan} yang dijumpai.</div>`;
+    return;
   }
+
+  document.getElementById("peer-list-items").innerHTML = peerGroup.map(p => {
+    const pid  = cleanKP(p.nokp);
+    const done = peerSaved[pid];
+    const sc   = peerScores[pid] ? Object.values(peerScores[pid]).reduce((a,b)=>a+b,0) : 0;
+    return `
+      <div class="peer-item">
+        <div>
+          <div class="peer-name">${p.nama||"—"}</div>
+          <div class="peer-role">${p.jawatan||""} · Kumpulan ${p.kumpulan||"—"}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${done ? `<span class="badge badge-success">Selesai &nbsp;${sc}/25</span>` : ""}
+          <button class="btn ${done?"btn-outline":"btn-primary"} btn-sm"
+                  onclick="openPeerForm('${pid}')">
+            ${done ? "📝 Semak" : "⭐ Nilai"}
+          </button>
+        </div>
+      </div>`;
+  }).join("");
 }
 
-// ================================================================
-// SPIDER CHART
-// ================================================================
-function buildSpider(canvasId, labels, data) {
-  const existing = Chart.getChart(canvasId);
-  if (existing) existing.destroy();
-  const el = $(canvasId);
-  if (!el) return;
-  new Chart(el, {
-    type: 'radar',
-    data: { labels, datasets: [{
-      data,
-      fill: true,
-      backgroundColor: 'rgba(55,138,221,.12)',
-      borderColor: '#378ADD',
-      pointBackgroundColor: '#378ADD',
-      pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: '#378ADD'
-    }]},
-    options: {
-      scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 9 } }, pointLabels: { font: { size: 10 } } } },
-      plugins: { legend: { display: false } }, responsive: true
+// ── PEER FORM ─────────────────────────────────────────────────
+function openPeerForm(pid) {
+  activePeer = pid;
+  const peer = peerGroup.find(p => cleanKP(p.nokp) === pid);
+  if (!peer) return;
+  const done = peerSaved[pid];
+
+  document.getElementById("peer-form-name").textContent = peer.nama || "—";
+  document.getElementById("peer-form-role").textContent = (peer.jawatan||"") + " · Kumpulan " + (peer.kumpulan||"—");
+
+  if (!peerScores[pid]) {
+    peerScores[pid] = {};
+    CRITERIA.forEach(c => { peerScores[pid][c.id] = 0; });
+  }
+
+  document.getElementById("peer-criteria-rows").innerHTML = CRITERIA.map(c => `
+    <div class="criteria-row">
+      <div class="criteria-label">
+        <div class="criteria-name">${c.label}</div>
+        <div class="criteria-desc">${c.desc}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="stars${done?" readonly":""}" data-crit="${c.id}">
+          ${[1,2,3,4,5].map(s=>`<span class="star${s<=(peerScores[pid][c.id]||0)?" on":""}"
+            data-val="${s}" onclick="${done?"":"starClick(this)"}">★</span>`).join("")}
+        </div>
+        <span class="score-display" id="score-${c.id}">${peerScores[pid][c.id]||0}</span>
+      </div>
+    </div>`).join("");
+
+  updatePeerTotal();
+  document.getElementById("btn-submit-peer").disabled = done;
+  document.getElementById("peer-form-alert").classList.add("hidden");
+
+  document.getElementById("peer-list-view").classList.add("hidden");
+  document.getElementById("peer-form-view").classList.remove("hidden");
+}
+
+function starClick(starEl) {
+  const val   = parseInt(starEl.dataset.val);
+  const critId = starEl.closest(".stars").dataset.crit;
+  peerScores[activePeer][critId] = val;
+  // Kemaskini paparan bintang
+  starEl.closest(".stars").querySelectorAll(".star").forEach(s => {
+    s.classList.toggle("on", parseInt(s.dataset.val) <= val);
+  });
+  document.getElementById("score-"+critId).textContent = val;
+  updatePeerTotal();
+}
+
+function updatePeerTotal() {
+  if (!activePeer || !peerScores[activePeer]) return;
+  const total = Object.values(peerScores[activePeer]).reduce((a,b)=>a+b,0);
+  document.getElementById("peer-total").textContent = total;
+}
+
+function closePeerForm() {
+  activePeer = null;
+  document.getElementById("peer-form-view").classList.add("hidden");
+  document.getElementById("peer-list-view").classList.remove("hidden");
+}
+
+async function submitPeer() {
+  if (!activePeer) return;
+  const sc = peerScores[activePeer];
+  const total = Object.values(sc).reduce((a,b)=>a+b,0);
+  if (total === 0) {
+    showAlert("peer-form-alert","warning","⚠️ Sila berikan sekurang-kurangnya satu markah sebelum menghantar.");
+    return;
+  }
+  const peer = peerGroup.find(p => cleanKP(p.nokp) === activePeer);
+  if (!peer) return;
+
+  showLoading("Menghantar penilaian...");
+  try {
+    const r = await gasPost({
+      action:"savePeer",
+      penilaiKP:    student.nokp,
+      penilaiNama:  student.nama,
+      dinilaiKP:    peer.nokp,
+      dinilaiNama:  peer.nama,
+      kumpulan:     student.kumpulan,
+      scores:       sc
+    });
+    if (r.ok) {
+      peerSaved[activePeer] = true;
+      document.getElementById("btn-submit-peer").disabled = true;
+      showAlert("peer-form-alert","success","✅ Penilaian berjaya dihantar. Terima kasih!");
+      // Semak jika semua sudah dinilai
+      const allDone = peerGroup.every(p => peerSaved[cleanKP(p.nokp)]);
+      if (allDone) setTimeout(()=>{ gotoPage("ringkasan"); }, 1500);
+    } else {
+      showAlert("peer-form-alert","danger","❌ "+r.error);
     }
-  });
+  } catch(e) {
+    showAlert("peer-form-alert","danger","❌ Ralat sambungan. Cuba sebentar lagi.");
+  } finally { hideLoading(); }
 }
 
-// ================================================================
-// MODAL: DETAIL PELAJAR
-// ================================================================
-async function modalPelajar(nokp) {
-  const p = PELAJAR_CACHE.find(x => x.nokp === nokp);
-  if (!p) return;
-  let bio = {};
-  try { const r = await gasCall('getBiodata', { nokp }); bio = r.data || {}; } catch(e) {}
-  const m = MARKAH_CACHE[nokp];
-  const gred = m && m.gred ? m.gred : '—';
-  const [bg, tc] = avatarColor(p.nama);
+// ── RINGKASAN RENDER ──────────────────────────────────────────
+async function renderRingkasan() {
+  const savedList = Object.keys(peerSaved);
+  const avgScore  = savedList.length
+    ? Math.round(savedList.reduce((s,pid)=>s+Object.values(peerScores[pid]||{}).reduce((a,b)=>a+b,0),0)/savedList.length)
+    : 0;
 
-  html('modal-wrap', `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal">
-        <div class="modal-header"><h3>Profil Pelajar</h3><button class="btn-close" onclick="closeModal()">×</button></div>
-        <div style="text-align:center;margin-bottom:14px">
-          <div class="avatar-lg" style="background:${bg};color:${tc}">
-            ${bio.urlGambar ? `<img src="${bio.urlGambar}"/>` : getInitials(p.nama)}
-          </div>
-          <div style="font-size:14px;font-weight:600;margin-top:6px">${p.nama}</div>
-          <span class="badge ${kelasBadge(p.kelas)}" style="margin-top:4px">${p.kelas}</span>
-        </div>
-        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">No. KP</div><div class="info-value">${p.nokp}</div></div>
-        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina === 'L' ? 'Lelaki' : 'Perempuan'}</div></div>
-        ${bio.jawatan ? `<div class="info-row"><div class="info-label">Jawatan</div><div class="info-value">${bio.jawatan}</div></div>` : ''}
-        ${bio.kumpulan ? `<div class="info-row"><div class="info-label">Kumpulan</div><div class="info-value">${bio.kumpulan}</div></div>` : ''}
-        ${bio.alahan ? `<div class="info-row"><div class="info-label">Alahan</div><div class="info-value">${bio.alahan}</div></div>` : ''}
-        ${bio.noTelKecemasan ? `<div class="info-row"><div class="info-label">No. Tel Kecemasan</div><div class="info-value">${bio.noTelKecemasan}</div></div>` : ''}
-        <hr class="divider">
-        <div class="grid-3" style="gap:8px;margin-bottom:12px">
-          <div class="stat-card"><div class="lbl">HPK1</div><div class="val" style="font-size:17px">${m && m.hpk1 !== null ? Number(m.hpk1).toFixed(1) : '—'}</div></div>
-          <div class="stat-card"><div class="lbl">HPK2</div><div class="val" style="font-size:17px">${m && m.hpk2 !== null ? Number(m.hpk2).toFixed(1) : '—'}</div></div>
-          <div class="stat-card"><div class="lbl">HPK3</div><div class="val" style="font-size:17px">${m && m.hpk3 !== null ? Number(m.hpk3).toFixed(1) : '—'}</div></div>
-        </div>
-        <div style="text-align:center">
-          <span style="font-size:24px;font-weight:700" class="${gredClass(gred)}">${m && m.jumlah !== null ? Number(m.jumlah).toFixed(1) : '—'}</span>
-          <span style="font-size:14px;color:var(--text-secondary);margin-left:8px">Gred <strong class="${gredClass(gred)}">${gred}</strong></span>
-        </div>
-      </div>
-    </div>`);
-}
+  document.getElementById("ringkasan-stats").innerHTML = `
+    <div class="stat-card">
+      <div class="stat-val">${savedList.length}</div>
+      <div class="stat-lbl">Penilaian Dihantar</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">${peerGroup.length}</div>
+      <div class="stat-lbl">Jumlah Ahli Kumpulan</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">${avgScore}</div>
+      <div class="stat-lbl">Purata Markah Diberikan</div>
+    </div>
+  `;
 
-async function modalPeerDetail(targetAgiliran) {
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  let ratings = [];
-  try { const r = await gasCall('getPeerRatings', { targetId: targetAgiliran }); ratings = r.data || []; } catch(e) {}
-  const avgDims = DIMS.map(d => {
-    const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  });
-  const p = PELAJAR_CACHE.find(x => x.agiliran === targetAgiliran) || {};
-
-  html('modal-wrap', `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Penilaian Rakan — ${(p.nama||'').split(' ').slice(0,3).join(' ')}</h3>
-          <button class="btn-close" onclick="closeModal()">×</button>
-        </div>
-        <canvas id="sp-modal" height="240"></canvas>
-        <div style="margin-top:14px">
-          ${DIMS.map((d, i) => `
-          <div class="mark-row">
-            <div style="flex:1;font-size:13px;font-weight:500">${d}</div>
-            <div style="width:45px;text-align:right;font-size:12px">${avgDims[i].toFixed(1)}/5</div>
-            <div style="width:100px;padding-left:8px">
-              <div class="progress-bar"><div class="progress-fill" style="width:${avgDims[i]/5*100}%;background:var(--primary)"></div></div>
-            </div>
-          </div>`).join('')}
-        </div>
-        <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--text-secondary)">
-          Berdasarkan ${ratings.length} penilaian rakan
-        </div>
-      </div>
-    </div>`);
-  setTimeout(() => buildSpider('sp-modal', DIMS, avgDims), 50);
-}
-
-function closeModal() { html('modal-wrap', ''); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-// ================================================================
-// CLIENT-SIDE MARKAH CALCULATION (mirror of Code.gs)
-// ================================================================
-function hitungMarkahClient(m) {
-  const k   = parseFloat(m.kuiz) || 0;
-  const hp4 = parseFloat(m.hp4) || 0;
-  const hp5 = parseFloat(m.hp5) || 0;
-  const hp3 = parseFloat(m.hp3) || 0;
-  const hp8 = parseFloat(m.hp8) || 0;
-  const hpk1 = +(k   * 0.10).toFixed(2);
-  const hpk2 = +(hp4 * 0.30 + hp5 * 0.30).toFixed(2);
-  const hpk3 = +(hp3 * 0.15 + hp8 * 0.15).toFixed(2);
-  const jumlah = +(hpk1 + hpk2 + hpk3).toFixed(2);
-  return { hpk1, hpk2, hpk3, jumlah };
-}
-
-function tentukanGredClient(j) {
-  if (j >= 90) return 'A+';  if (j >= 80) return 'A';
-  if (j >= 75) return 'A-';  if (j >= 70) return 'B+';
-  if (j >= 65) return 'B';   if (j >= 60) return 'B-';
-  if (j >= 55) return 'C+';  if (j >= 50) return 'C';
-  if (j >= 45) return 'C-';  if (j >= 40) return 'D';
-  return 'F';
-}
-
-// ================================================================
-// INIT
-// ================================================================
-window.addEventListener('load', () => {
-  // GAS environment check
-  if (typeof google !== 'undefined' && google.script) {
-    hideLoading();
-    $('screen-auth').classList.remove('hidden');
+  if (savedList.length === 0) {
+    document.getElementById("ringkasan-table-wrap").innerHTML =
+      `<div class="alert alert-info">ℹ️ Belum ada penilaian yang dihantar. Pergi ke <b>Penilaian Rakan</b> untuk mula menilai.</div>`;
   } else {
-    // Development fallback (bukan dalam GAS)
-    $('loading-overlay').querySelector('.loading-text').textContent =
-      '⚠ Sila deploy sebagai Google Apps Script Web App.';
-  }
-});
+    const rows = peerGroup.map(p => {
+      const pid  = cleanKP(p.nokp);
+      const done = peerSaved[pid];
+      const sc   = peerScores[pid] || {};
+      const tot  = Object.values(sc).reduce((a,b)=>a+b,0);
+      return `<tr>
+        <td style="font-weight:600">${p.nama||"—"}</td>
+        <td style="color:var(--text-faint)">${p.jawatan||"—"}</td>
+        ${CRITERIA.map(c=>`<td style="text-align:center">
+          ${done ? `<span style="color:#E89C16">${"★".repeat(sc[c.id]||0)}${"☆".repeat(5-(sc[c.id]||0))}</span>` : "—"}
+        </td>`).join("")}
+        <td style="font-weight:700;color:var(--primary)">${done?`${tot}/25`:"—"}</td>
+        <td>${done?`<span class="badge badge-success">Selesai</span>`:`<span class="badge badge-warning">Belum</span>`}</td>
+      </tr>`;
+    }).join("");
 
-// Allow Enter key to login
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !$('screen-auth').classList.contains('hidden')) doLogin();
-});
+    document.getElementById("ringkasan-table-wrap").innerHTML = `
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr>
+            <th>Nama</th><th>Jawatan</th>
+            ${CRITERIA.map(c=>`<th>${c.label.split(" ")[0]}</th>`).join("")}
+            <th>Jumlah</th><th>Status</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  // Markah diterima
+  showLoading("Memuatkan markah yang diterima...");
+  try {
+    const r = await gasPost({ action:"getPeerResults", nokp:student.nokp });
+    if (r.ok && r.data.results.length > 0) {
+      const { results, avg, count } = r.data;
+      document.getElementById("ringkasan-received-wrap").innerHTML = `
+        <div class="alert alert-info" style="margin-bottom:14px">
+          📥 Anda telah menerima <strong>${count}</strong> penilaian daripada rakan.
+          Purata markah: <strong>${avg}/25</strong>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th>Dinilai oleh</th>
+              ${CRITERIA.map(c=>`<th>${c.label.split(" ")[0]}</th>`).join("")}
+              <th>Jumlah</th><th>Tarikh</th>
+            </tr></thead>
+            <tbody>${results.map(r=>`<tr>
+              <td style="font-weight:600">${r.penilaiNama}</td>
+              ${CRITERIA.map(c=>`<td style="text-align:center">
+                <span style="color:#E89C16">${"★".repeat(r[c.id]||0)}</span>
+              </td>`).join("")}
+              <td style="font-weight:700;color:var(--primary)">${r.jumlah}/25</td>
+              <td style="font-size:12px;color:var(--text-faint)">${r.timestamp}</td>
+            </tr>`).join("")}</tbody>
+          </table>
+        </div>`;
+    } else {
+      document.getElementById("ringkasan-received-wrap").innerHTML =
+        `<div class="alert alert-info">ℹ️ Belum ada rakan yang menilai anda setakat ini.</div>`;
+    }
+  } catch(e) {
+    document.getElementById("ringkasan-received-wrap").innerHTML =
+      `<div class="alert alert-warning">⚠️ Tidak dapat memuatkan data markah diterima.</div>`;
+  } finally { hideLoading(); }
+}
 </script>
 </body>
 </html>
