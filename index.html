@@ -1,1415 +1,501 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistem Pemarkahan IPG — MPU2082</title>
-<!-- Font Curation: Lora (Editorial Serif) & Outfit (Modern Data Sans) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-:root {
-  /* Editorial Color Palette */
-  --bg-base: #F7F6F2;
-  --bg-surface: #FFFFFF;
-  --fg-primary: #121417;
-  --fg-muted: #64676C;
-  --border-color: #D6D4CE;
-  --border-focus: #112A46;
-  
-  --brand-primary: #112A46; /* Deep Academic Blue */
-  --brand-secondary: #E3E0D8;
-  
-  --accent-success: #24583C;
-  --accent-success-bg: #E7F0EB;
-  --accent-warning: #914F15;
-  --accent-warning-bg: #F8EFE7;
-  --accent-danger: #822020;
-  --accent-danger-bg: #F4E7E7;
-  --accent-info: #224E7D;
-  --accent-info-bg: #E8EFF5;
-
-  --font-heading: 'Lora', serif;
-  --font-body: 'Outfit', sans-serif;
-  
-  --radius-sm: 2px;
-  --radius-md: 6px;
-  --radius-lg: 12px;
-  
-  --shadow-subtle: 0 4px 12px rgba(0,0,0,0.03);
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-body); background: var(--bg-base); color: var(--fg-primary); min-height: 100vh; font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -0.01em; color: var(--fg-primary); }
-
-/* ── LOADING OVERLAY ── */
-#loading-overlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; transition: opacity 0.4s ease; text-align: center; padding: 20px;}
-.spinner { width: 44px; height: 44px; border: 2px solid var(--border-color); border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { font-family: var(--font-heading); font-style: italic; font-size: 16px; color: var(--brand-primary); max-width: 400px; }
-
-/* ── AUTH SCREEN (Editorial Split Layout) ── */
-#screen-auth { min-height: 100vh; display: flex; background: var(--bg-base); }
-.auth-visual { flex: 1; background: var(--brand-primary); color: white; padding: 60px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
-.auth-visual::after { content: ''; position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 24px 24px; opacity: 0.4; pointer-events: none; }
-.auth-visual h2 { color: white; font-size: 42px; line-height: 1.2; font-weight: 500; margin-top: auto; max-width: 400px; z-index: 1; }
-.auth-visual p { color: rgba(255,255,255,0.7); font-size: 15px; margin-top: 16px; z-index: 1; font-family: var(--font-body); font-weight: 300; }
-.auth-panel { width: 100%; max-width: 480px; background: var(--bg-surface); padding: 40px 60px; display: flex; flex-direction: column; justify-content: center; box-shadow: -10px 0 30px rgba(0,0,0,0.02); }
-@media (max-width: 768px) { .auth-visual { display: none; } .auth-panel { max-width: 100%; padding: 30px; } }
-
-.auth-logo { margin-bottom: 32px; }
-.auth-logo h1 { font-size: 24px; margin-bottom: 6px; }
-.auth-logo p { font-size: 13px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
-
-.auth-tabs { display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 24px; }
-.auth-tab { flex: 1; padding: 12px 0; text-align: center; font-size: 14px; font-weight: 600; cursor: pointer; background: transparent; border: none; color: var(--fg-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
-.auth-tab.active { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
-
-/* ── APP SHELL ── */
-#app { display: flex; min-height: 100vh; }
-.sidebar { width: 260px; background: var(--bg-surface); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; }
-.sb-brand { padding: 24px; border-bottom: 1px solid var(--border-color); }
-.sb-brand h1 { font-size: 18px; line-height: 1.2; }
-.sb-brand p { font-size: 11px; color: var(--fg-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
-.sb-user { padding: 20px 24px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; }
-.sb-user-name { font-size: 14px; font-weight: 600; color: var(--fg-primary); }
-.sb-user-role { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
-.sb-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
-.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; font-weight: 500; color: var(--fg-muted); transition: all 0.2s; margin-bottom: 4px; }
-.nav-item:hover { background: var(--bg-base); color: var(--fg-primary); }
-.nav-item.active { background: var(--brand-primary); color: white; }
-.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
-.sb-footer { padding: 16px; border-top: 1px solid var(--border-color); }
-
-.btn-logout { width: 100%; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: transparent; color: var(--fg-primary); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
-.btn-logout:hover { background: var(--accent-danger-bg); color: var(--accent-danger); border-color: var(--accent-danger-bg); }
-
-/* ── MAIN CONTENT ── */
-.main { margin-left: 260px; flex: 1; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg-base); }
-.topbar { background: var(--bg-base); padding: 24px 36px 12px; display: flex; align-items: flex-end; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-.topbar h2 { font-size: 28px; font-weight: 500; color: var(--fg-primary); }
-.content { padding: 24px 36px 48px; flex: 1; max-width: 1400px; }
-
-/* ── COMPONENTS ── */
-.card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-subtle); transition: border-color 0.3s; }
-.card-p0 { padding: 0; }
-.card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-.card-title { font-family: var(--font-heading); font-size: 18px; font-weight: 600; color: var(--brand-primary); }
-.card-sub { font-size: 13px; color: var(--fg-muted); margin-top: 4px; }
-
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-
-/* Editorial Stat Card */
-.stat-card { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; position: relative; overflow: hidden; }
-.stat-card::before { content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--brand-secondary); transition: background 0.3s; }
-.stat-card:hover::before { background: var(--brand-primary); }
-.stat-card .lbl { font-size: 11px; color: var(--fg-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-.stat-card .val { font-family: var(--font-heading); font-size: 32px; font-weight: 400; color: var(--fg-primary); line-height: 1; }
-.stat-card .sub { font-size: 12px; color: var(--fg-muted); margin-top: 8px; font-weight: 500; }
-
-/* Forms */
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--fg-primary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 14px; font-family: var(--font-body); background: var(--bg-surface); color: var(--fg-primary); outline: none; transition: all 0.2s; }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus); }
-
-/* Buttons */
-.btn { padding: 10px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-family: var(--font-body); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; background: var(--bg-surface); color: var(--fg-primary); text-transform: uppercase; letter-spacing: 0.05em; }
-.btn:hover { background: var(--bg-base); border-color: var(--fg-primary); }
-.btn-primary { background: var(--brand-primary); color: #fff; border-color: var(--brand-primary); }
-.btn-primary:hover { background: #0A1929; border-color: #0A1929; color: #fff; }
-.btn-success { background: var(--accent-success); color: #fff; border-color: var(--accent-success); }
-.btn-success:hover { background: #1B422D; color: #fff; }
-.btn-block { width: 100%; }
-.btn-sm { padding: 6px 14px; font-size: 11px; }
-.btn-xs { padding: 4px 10px; font-size: 11px; }
-
-/* Badges */
-.badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.b-blue { background: var(--accent-info-bg); color: var(--accent-info); }
-.b-green { background: var(--accent-success-bg); color: var(--accent-success); }
-.b-amber { background: var(--accent-warning-bg); color: var(--accent-warning); }
-.b-red { background: var(--accent-danger-bg); color: var(--accent-danger); }
-.b-gray { background: var(--brand-secondary); color: var(--fg-muted); }
-
-/* Alerts */
-.alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; border-left: 3px solid; }
-.alert-danger { background: var(--accent-danger-bg); color: var(--accent-danger); border-left-color: var(--accent-danger); }
-.alert-success { background: var(--accent-success-bg); color: var(--accent-success); border-left-color: var(--accent-success); }
-.alert-info { background: var(--accent-info-bg); color: var(--accent-info); border-left-color: var(--accent-info); }
-
-.hidden { display: none !important; }
-.divider { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
-
-/* Tables (Editorial Minimalist) */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-thead th { background: var(--bg-surface); padding: 14px 16px; text-align: left; font-weight: 600; font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--fg-primary); white-space: nowrap; }
-tbody tr { border-bottom: 1px solid var(--border-color); transition: background 0.2s; }
-tbody tr:hover { background: var(--bg-base); }
-tbody td { padding: 14px 16px; vertical-align: middle; }
-tbody tr:last-child { border-bottom: none; }
-
-/* Inputs in table */
-.mark-input { width: 72px; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 14px; font-family: var(--font-body); font-weight: 500; text-align: center; background: var(--bg-surface); color: var(--fg-primary); outline: none; transition: all 0.2s; }
-.mark-input:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 1px var(--brand-primary); }
-.mark-input.changed { border-color: var(--accent-warning); background: var(--accent-warning-bg); color: var(--accent-warning); }
-
-.progress-bar { height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; margin-top: 6px; }
-.progress-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
-
-/* Tabs */
-.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; gap: 24px; }
-.tab { padding: 0 0 12px 0; font-size: 14px; font-weight: 600; color: var(--fg-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
-.tab:hover { color: var(--fg-primary); }
-.tab.active { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
-
-/* Avatars */
-.avatar { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; font-family: var(--font-heading); flex-shrink: 0; overflow: hidden; border: 1px solid rgba(0,0,0,0.05); }
-.avatar img, .avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-lg { width: 80px; height: 80px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 500; font-family: var(--font-heading); overflow: hidden; margin: 0 auto 16px; border: 1px solid rgba(0,0,0,0.05); }
-
-/* Rows & Stars */
-.info-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--border-color); font-size: 14px; }
-.info-row:last-child { border-bottom: none; }
-.info-label { width: 140px; flex-shrink: 0; color: var(--fg-muted); font-weight: 500; }
-.info-value { flex: 1; font-weight: 500; color: var(--fg-primary); }
-
-.mark-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
-.mark-row:last-child { border-bottom: none; }
-
-.star-group { display: flex; gap: 6px; }
-.star { width: 32px; height: 32px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-surface); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: var(--fg-muted); transition: all 0.15s; user-select: none; }
-.star.on { background: var(--brand-primary); color: white; border-color: var(--brand-primary); }
-.star:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
-
-.photo-drop { border: 1px dashed var(--fg-muted); border-radius: var(--radius-sm); padding: 30px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-base); }
-.photo-drop:hover { border-color: var(--brand-primary); background: var(--accent-info-bg); }
-.photo-drop .preview { width: 80px; height: 80px; border-radius: var(--radius-sm); object-fit: cover; margin: 0 auto 12px; display: block; }
-
-.empty-state { text-align: center; padding: 60px 20px; color: var(--fg-muted); }
-.empty-state .ic { font-size: 32px; margin-bottom: 12px; opacity: 0.5; filter: grayscale(1); }
-.empty-state p { font-size: 14px; font-weight: 500; }
-
-.notification { position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; z-index: 9999; max-width: 320px; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-left: 4px solid; }
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-/* Modals */
-.modal-overlay { position: fixed; inset: 0; background: rgba(18, 20, 23, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 999; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; animation: fadeIn 0.2s forwards; }
-@keyframes fadeIn { to { opacity: 1; } }
-.modal { background: var(--bg-surface); border-radius: var(--radius-sm); border: 1px solid var(--border-color); width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); transform: translateY(10px); animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-@keyframes modalSlide { to { transform: translateY(0); } }
-.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 2px solid var(--fg-primary); padding-bottom: 12px; }
-.modal-header h3 { font-family: var(--font-heading); font-size: 20px; font-weight: 600; color: var(--fg-primary); }
-.btn-close { width: 28px; height: 28px; border: none; background: var(--bg-base); border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--fg-muted); transition: all 0.2s; }
-.btn-close:hover { background: var(--border-color); color: var(--fg-primary); }
-
-/* Typography Colors */
-.gA, .gAp, .gAm { color: var(--accent-success); font-weight: 700; }
-.gB, .gBp, .gBm { color: var(--accent-info); font-weight: 700; }
-.gC, .gCp, .gCm { color: var(--accent-warning); font-weight: 700; }
-.gD { color: #A84C00; font-weight: 700; }
-.gF { color: var(--accent-danger); font-weight: 700; }
-
-.filter-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid var(--border-color); background: var(--bg-base); }
-.filter-bar input, .filter-bar select { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 13px; font-family: var(--font-body); background: var(--bg-surface); outline: none; }
-.filter-bar input:focus, .filter-bar select:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 1px var(--brand-primary); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Portal MPU3221 | Final Certified Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0f172a; min-height: 100vh; min-height: 100dvh; color: white; display: flex; align-items: flex-start; justify-content: center; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 2.5rem; }
+        /* Kurangkan border-radius pada mobile */
+        @media (max-width: 640px) { .glass { border-radius: 1.5rem; } }
+        .btn-prime { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); transition: 0.2s; cursor: pointer; }
+        .btn-prime:active { transform: scale(0.97); }
+        .btn-prime:disabled { opacity: 0.3; cursor: not-allowed; }
+        .hidden-section { display: none !important; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        /* Input number — buang spinner */
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+        input[type=number] { -moz-appearance: textfield; }
+        /* Saiz tap target minimum 44px */
+        button { min-height: 44px; }
+        input[type=range] { height: 44px; }
+        /* Fix body scroll bila modal buka */
+        body.modal-open { overflow: hidden; }
+        /* Lecturer panel — scroll independent */
+        #lList { -webkit-overflow-scrolling: touch; }
+        /* Pelajar list scroll */
+        #peerList { -webkit-overflow-scrolling: touch; }
+    </style>
 </head>
-<body>
+<body class="p-3 sm:p-4">
 
-<!-- Loading -->
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <div class="loading-text">Sistem sedang dimuatkan...</div>
-</div>
-
-<!-- ── AUTH ── -->
-<div id="screen-auth" class="hidden">
-  <div class="auth-visual">
-    <div>
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>
-      </svg>
-    </div>
-    <div>
-      <h2>Sistem Pemarkahan<br>Institut Pendidikan Guru</h2>
-      <p>Modul Pentaksiran Berterusan — MPU2082 (Sesi 2024/2025)</p>
-    </div>
-  </div>
-  
-  <div class="auth-panel">
-    <div class="auth-logo">
-      <h1>Log Masuk</h1>
-      <p>Akses ke Papan Pemuka</p>
+    <!-- ===== LOGIN ===== -->
+    <div id="loginScreen" class="glass w-full max-w-md p-6 sm:p-10 shadow-2xl mt-8 sm:mt-0 sm:self-center">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-center mb-8 sm:mb-10 text-indigo-400">PORTAL MPU3221</h1>
+        <div class="flex gap-2 mb-6 sm:mb-8 p-1 bg-white/5 rounded-2xl text-[11px] font-bold">
+            <button onclick="switchRole('S')" id="ts" class="flex-1 py-3 rounded-xl bg-indigo-600">PELAJAR</button>
+            <button onclick="switchRole('L')" id="tl" class="flex-1 py-3 rounded-xl text-slate-400">PENSYARAH</button>
+        </div>
+        <div class="space-y-3">
+            <input type="text" id="userId" inputmode="numeric" placeholder="No. Kad Pengenalan"
+                class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none focus:border-indigo-500 font-mono text-center text-base">
+            <input type="password" id="userPass" placeholder="Password (Pensyarah)"
+                class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none hidden text-center text-base">
+        </div>
+        <button onclick="handleAuth()" id="authBtn" class="btn-prime w-full p-4 rounded-2xl font-bold uppercase mt-6 sm:mt-8 text-sm shadow-xl">MASUK SISTEM</button>
     </div>
 
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-pensyarah" onclick="switchTab('pensyarah')">Pensyarah</button>
-      <button class="auth-tab" id="tab-pelajar" onclick="switchTab('pelajar')">Pelajar</button>
-    </div>
-
-    <div id="form-pensyarah">
-      <div class="form-group">
-        <label>E-mel Rasmi</label>
-        <input type="email" id="auth-email" placeholder="nama@ipgm.edu.my" value="hanifffaizal@gmail.com"/>
-      </div>
-      <div class="form-group">
-        <label>Kata Laluan</label>
-        <input type="password" id="auth-pass" placeholder="Masukkan kata laluan" value="790704025409"/>
-      </div>
-    </div>
-
-    <div id="form-pelajar" class="hidden">
-      <div class="form-group">
-        <label>No. Kad Pengenalan</label>
-        <input type="text" id="auth-nokp" placeholder="Cth: 030924080985"/>
-      </div>
-    </div>
-
-    <div id="auth-err" class="alert alert-danger hidden"></div>
-
-    <button class="btn btn-primary btn-block" id="btn-login" onclick="doLogin()" style="margin-top:16px; padding: 14px;">
-      Akses Sistem
-    </button>
-  </div>
-</div>
-
-<!-- ── APP ── -->
-<div id="app" class="hidden">
-  <aside class="sidebar">
-    <div class="sb-brand">
-      <h1>Pemarkahan IPG</h1>
-      <p>MPU2082 | 2024/2025</p>
-    </div>
-    <div class="sb-user" id="sb-user"></div>
-    <nav class="sb-nav" id="sb-nav"></nav>
-    <div class="sb-footer">
-      <button class="btn-logout" onclick="doLogout()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Log Keluar
-      </button>
-    </div>
-  </aside>
-  <main class="main">
-    <div class="topbar">
-      <h2 id="page-title">Papan Pemuka</h2>
-      <div id="topbar-right"></div>
-    </div>
-    <div class="content" id="content"></div>
-  </main>
-</div>
-
-<div id="modal-wrap"></div>
-<div id="notif" style="display:none" class="notification"></div>
-
-<script>
-// ================================================================
-// STATE
-// ================================================================
-let SESSION = null;        
-let PELAJAR_CACHE = [];    
-let MARKAH_CACHE = {};     
-let UNSAVED_MARKAH = {};   
-
-// ================================================================
-// UTILITY HELPERS
-// ================================================================
-const $ = id => document.getElementById(id);
-const html = (id, h) => { const el = $(id); if (el) el.innerHTML = h; };
-
-function notify(msg, type = 'info') {
-  const el = $('notif');
-  el.textContent = msg;
-  el.style.display = 'block';
-  el.style.background = type === 'success' ? '#E7F0EB' : type === 'error' ? '#F4E7E7' : '#E8EFF5';
-  el.style.color = type === 'success' ? '#24583C' : type === 'error' ? '#822020' : '#112A46';
-  el.style.borderLeftColor = type === 'success' ? '#24583C' : type === 'error' ? '#822020' : '#112A46';
-  clearTimeout(el._t);
-  el._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
-}
-
-function showLoading(msg = 'Memuatkan...') {
-  $('loading-overlay').style.opacity = '1';
-  $('loading-overlay').style.display = 'flex';
-  const textEl = $('loading-overlay').querySelector('.loading-text');
-  if (textEl) textEl.textContent = msg;
-}
-function hideLoading() { 
-  $('loading-overlay').style.opacity = '0';
-  setTimeout(() => $('loading-overlay').style.display = 'none', 400); 
-}
-
-function getInitials(nama) {
-  return nama.split(' ').filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || nama.slice(0, 2).toUpperCase();
-}
-
-// Editorial colors for avatars
-const AVATAR_COLORS = [
-  ['#E8EFF5','#112A46'],['#E7F0EB','#24583C'],['#F8EFE7','#914F15'],
-  ['#F4E7E7','#822020'],['#EBE9E1','#4A473E'],['#E3E0D8','#2C2B26']
-];
-function avatarColor(nama) {
-  const i = (nama.charCodeAt(0) || 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[i];
-}
-
-function gredClass(g) {
-  if (!g || g === '—') return '';
-  if (g === 'A+') return 'gAp';
-  if (g === 'A') return 'gA';
-  if (g === 'A-') return 'gAm';
-  if (g.startsWith('B')) return 'gB';
-  if (g.startsWith('C')) return 'gC';
-  if (g === 'D') return 'gD';
-  return 'gF';
-}
-
-function kelasBadge(kelas) {
-  if (kelas === 'PBKK') return 'b-blue';
-  if (kelas === 'PIMK') return 'b-gray';
-  return 'b-green';
-}
-
-function avatarHTML(nama, gambar, size = 36) {
-  const [bg, tc] = avatarColor(nama);
-  const style = `width:${size}px;height:${size}px;font-size:${Math.round(size*0.4)}px;background:${bg};color:${tc}`;
-  const inner = gambar ? `<img src="${gambar}" alt=""/>` : getInitials(nama);
-  return `<div class="avatar" style="${style}">${inner}</div>`;
-}
-
-// ================================================================
-// GAS BRIDGE
-// ================================================================
-function gasCall(action, payload = {}) {
-  return new Promise((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res && res.ok === false) reject(new Error(res.error || 'Ralat pelayan.'));
-        else resolve(res);
-      })
-      .withFailureHandler(err => reject(err))
-      .handleRequest(action, payload);
-  });
-}
-
-// ================================================================
-// AUTH
-// ================================================================
-function switchTab(tab) {
-  $('tab-pensyarah').classList.toggle('active', tab === 'pensyarah');
-  $('tab-pelajar').classList.toggle('active', tab === 'pelajar');
-  $('form-pensyarah').classList.toggle('hidden', tab !== 'pensyarah');
-  $('form-pelajar').classList.toggle('hidden', tab !== 'pelajar');
-  $('auth-err').classList.add('hidden');
-}
-
-async function doLogin() {
-  $('auth-err').classList.add('hidden');
-  const isPensyarah = !$('form-pensyarah').classList.contains('hidden');
-  $('btn-login').disabled = true;
-  $('btn-login').textContent = 'Mengesahkan...';
-
-  try {
-    let payload;
-    if (isPensyarah) {
-      payload = { type: 'pensyarah', email: $('auth-email').value.trim(), password: $('auth-pass').value.trim() };
-    } else {
-      // Hilangkan sebarang spasi atau simbol pelik pada input KP
-      const cleanNokp = $('auth-nokp').value.replace(/['\s]/g, '');
-      payload = { type: 'pelajar', nokp: cleanNokp };
-    }
-
-    const res = await gasCall('login', payload);
-    SESSION = res;
-    await loadInitialData();
-    startApp();
-
-  } catch (e) {
-    $('auth-err').textContent = e.message;
-    $('auth-err').classList.remove('hidden');
-  } finally {
-    $('btn-login').disabled = false;
-    $('btn-login').textContent = 'Akses Sistem';
-  }
-}
-
-async function loadInitialData() {
-  showLoading('Menyelaras data pengguna...');
-  const res = await gasCall('getPelajarList');
-  PELAJAR_CACHE = res.data || [];
-
-  showLoading('Memuatkan rekod pemarkahan...');
-  const mRes = await gasCall('getAllMarkah');
-  MARKAH_CACHE = {};
-  (mRes.data || []).forEach(m => { MARKAH_CACHE[m.nokp] = m; });
-}
-
-function doLogout() {
-  SESSION = null; PELAJAR_CACHE = []; MARKAH_CACHE = {}; UNSAVED_MARKAH = {};
-  window._GLOBAL_BIODATA_MAP = null;
-  $('app').classList.add('hidden');
-  $('screen-auth').classList.remove('hidden');
-}
-
-// ================================================================
-// APP SHELL
-// ================================================================
-function startApp() {
-  hideLoading();
-  $('screen-auth').classList.add('hidden');
-  $('app').classList.remove('hidden');
-
-  if (SESSION.type === 'pensyarah') {
-    buildSidebarPensyarah();
-    navigateTo('dashboard');
-  } else {
-    buildSidebarPelajar();
-    navigateTo('bio');
-  }
-}
-
-function buildSidebarPensyarah() {
-  const u = SESSION.user;
-  const [bg, tc] = avatarColor(u.nama);
-  html('sb-user', `
-    <div class="avatar" style="width:36px;height:36px;font-size:14px;background:${bg};color:${tc}">${getInitials(u.nama)}</div>
-    <div>
-      <div class="sb-user-name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
-      <div class="sb-user-role">${u.role === 'admin' ? 'Penyelaras' : 'Pensyarah'}</div>
-    </div>`);
-
-  const navItems = [
-    { id: 'dashboard', label: 'Ringkasan Eksekutif', icon: icoHome() },
-    { id: 'pelajar',   label: 'Daftar Pelajar',      icon: icoUsers() },
-    { id: 'markah',    label: 'Kemasukan Markah',    icon: icoCheck() },
-    { id: 'laporan',   label: 'Analisis Pencapaian', icon: icoChart() },
-    { id: 'peer',      label: 'Penilaian Sahsiah',   icon: icoStar() },
-  ];
-  html('sb-nav', navItems.map(n => `
-    <div class="nav-item" id="nav-${n.id}" onclick="navigateTo('${n.id}')">
-      ${n.icon}<span>${n.label}</span>
-    </div>`).join(''));
-}
-
-function buildSidebarPelajar() {
-  const u = SESSION.user;
-  const [bg, tc] = avatarColor(u.nama);
-  html('sb-user', `
-    <div class="avatar" style="width:36px;height:36px;font-size:14px;background:${bg};color:${tc}">${getInitials(u.nama)}</div>
-    <div>
-      <div class="sb-user-name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
-      <div class="sb-user-role">${u.kelas} | ${u.agiliran}</div>
-    </div>`);
-
-  // MENU PELAJAR (Menu Penyata Markah telah dibuang secara mutlak)
-  const navItems = [
-    { id: 'bio',         label: 'Profil Akademik',  icon: icoUser() },
-    { id: 'peer-hantar', label: 'Penilaian Rakan',  icon: icoStar() }
-  ];
-  html('sb-nav', navItems.map(n => `
-    <div class="nav-item" id="nav-${n.id}" onclick="navigateTo('${n.id}')">
-      ${n.icon}<span>${n.label}</span>
-    </div>`).join(''));
-}
-
-function navigateTo(screen) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  const navEl = $('nav-' + screen);
-  if (navEl) navEl.classList.add('active');
-
-  const titles = {
-    dashboard: 'Ringkasan Eksekutif', pelajar: 'Daftar Pelajar',
-    markah: 'Kemasukan Markah', laporan: 'Analisis Pencapaian',
-    peer: 'Penilaian Sahsiah (Rakan Sebaya)',
-    bio: 'Profil Akademik', 'peer-hantar': 'Penilaian Rakan Sebaya'
-  };
-  $('page-title').textContent = titles[screen] || screen;
-
-  const screens = {
-    dashboard: renderDashboard, pelajar: renderPelajar,
-    markah: renderMarkah, laporan: renderLaporan,
-    peer: renderPeerView,
-    bio: renderBio, 'peer-hantar': renderPeerHantar
-  };
-  if (screens[screen]) screens[screen]();
-}
-
-// ================================================================
-// ICONS (Thin, sharp, editorial feel)
-// ================================================================
-const ic = d => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square">${d}</svg>`;
-const icoHome  = () => ic('<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>');
-const icoUsers = () => ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
-const icoCheck = () => ic('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
-const icoChart = () => ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
-const icoStar  = () => ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
-const icoUser  = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
-const icoSave  = () => ic('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>');
-
-// ================================================================
-// SCREEN: DASHBOARD
-// ================================================================
-async function renderDashboard() {
-  html('content', `<div style="text-align:center;padding:80px"><div class="spinner" style="margin:auto"></div></div>`);
-  try {
-    const res = await gasCall('getDashboard');
-    const d = res.data;
-    
-    const gradeColors = { A:'#24583C', B:'#224E7D', C:'#914F15', D:'#822020', F:'#4A473E' };
-
-    html('content', `
-      <div class="grid-4" style="margin-bottom:24px">
-        <div class="stat-card"><div class="lbl">Populasi Pelajar</div><div class="val">${d.jumlahPelajar}</div><div class="sub">Keseluruhan kohort</div></div>
-        <div class="stat-card"><div class="lbl">Kadar Respons</div><div class="val">${d.peratusLengkap}%</div><div class="sub">${d.rekodDimasuk} rekod telah diproses</div></div>
-        <div class="stat-card"><div class="lbl">Purata Prestasi</div><div class="val">${d.purataMark || '—'}</div><div class="sub">Markah keseluruhan</div></div>
-        <div class="stat-card"><div class="lbl">Penilaian Rakan</div><div class="val">${d.totalPeer}</div><div class="sub">Borang dihantar</div></div>
-      </div>
-      
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Taburan Gred Keseluruhan</div><div class="card-sub">Prestasi mengikut skala Abjad</div></div></div>
-          <canvas id="ch-grade" height="220"></canvas>
+    <!-- ===== STUDENT DASHBOARD ===== -->
+    <div id="studentDash" class="hidden-section glass w-full max-w-5xl p-4 sm:p-8 shadow-2xl">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-5 sm:mb-8 border-b border-white/5 pb-4 sm:pb-5 font-bold italic">
+            <h2 class="text-indigo-400 uppercase tracking-widest text-xs sm:text-sm">Student_Dashboard</h2>
+            <button onclick="logout()" class="px-4 py-2 border border-white/10 rounded-full text-[10px] font-black uppercase text-red-400">LOGOUT</button>
         </div>
-        <div class="card">
-          <div class="card-header"><div><div class="card-title">Demografi Kelas</div></div></div>
-          <div style="display:flex; justify-content:center; align-items:center; height: 220px;">
-             <canvas id="ch-kelas" height="220"></canvas>
-          </div>
-        </div>
-      </div>
-    `);
 
-    setTimeout(() => {
-      const gradeLabels = Object.keys(d.gradeDist).sort();
-      const gradeData = gradeLabels.map(k => d.gradeDist[k]);
-      new Chart($('ch-grade'), {
-        type:'bar',
-        data:{ labels:gradeLabels, datasets:[{ data:gradeData,
-          backgroundColor:gradeLabels.map(g => gradeColors[g]||'#D6D4CE'),
-          borderRadius: 2, borderSkipped:false }]},
-        options:{ 
-          plugins:{ legend:{ display:false } }, 
-          scales:{ 
-            y:{ beginAtZero:true, ticks:{ stepSize:1, font: { family: 'Outfit' } }, grid: { color: '#EBE9E1' } },
-            x:{ grid: { display: false }, ticks: { font: { family: 'Lora', weight: 600 } } }
-          } 
-        }
-      });
-      const kls = Object.keys(d.kelasStats);
-      new Chart($('ch-kelas'), {
-        type:'doughnut',
-        data:{ labels:kls, datasets:[{ data:kls.map(k => d.kelasStats[k].total),
-          backgroundColor:['#112A46','#24583C','#914F15'], borderWidth:0 }]},
-        options:{ plugins:{ legend:{ position:'right', labels: { font: { family: 'Outfit' } } } }, cutout:'75%', maintainAspectRatio: false }
-      });
-    }, 100);
+        <!-- Grid: mobile = 1 col, lg = 3 col -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
 
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
+            <!-- Kiri: Profil + Upload -->
+            <div class="lg:col-span-2 space-y-4 sm:space-y-8">
 
-// ================================================================
-// SCREEN: SENARAI PELAJAR
-// ================================================================
-async function renderPelajar() {
-  html('content', `
-    <div class="card card-p0" style="overflow: hidden;">
-      <div class="filter-bar">
-        <input id="q-pelajar" type="text" placeholder="Pencarian nama / angka giliran..." style="flex:1;min-width:250px">
-        <select id="f-kelas">
-          <option>Semua Kelas</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-        </select>
-        <span id="count-pelajar" class="badge b-gray">— pelajar</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th style="width: 40px">#</th>
-            <th>Nama Pelajar</th>
-            <th>Angka Giliran</th>
-            <th>Kelas</th>
-            <th>Jantina</th>
-            <th>Biodata</th>
-            <th style="text-align: right">Markah</th>
-            <th style="text-align: center">Gred</th>
-            <th style="width: 60px"></th>
-          </tr></thead>
-          <tbody id="tbody-pelajar"></tbody>
-        </table>
-      </div>
-    </div>`);
-
-  let biodataMap = {};
-  try {
-    const bRes = await gasCall('getLaporan');
-    (bRes.data || []).forEach(r => { biodataMap[r.nokp] = r; });
-    window._GLOBAL_BIODATA_MAP = biodataMap; 
-  } catch(e) {}
-
-  function renderRows() {
-    const q = $('q-pelajar').value.toLowerCase();
-    const kls = $('f-kelas').value;
-    const filtered = PELAJAR_CACHE.filter(p => {
-      const mq = !q || p.nama.toLowerCase().includes(q) || p.agiliran.toLowerCase().includes(q);
-      const mk = kls === 'Semua Kelas' || p.kelas === kls;
-      return mq && mk;
-    });
-    $('count-pelajar').textContent = filtered.length + ' Entri';
-    
-    html('tbody-pelajar', filtered.map((p, i) => {
-      const m = MARKAH_CACHE[p.nokp];
-      const bio = biodataMap[p.nokp] || {};
-      const hasBio = !!(bio.jawatan);
-      const hasMark = !!(m && m.jumlah !== null);
-      const gred = hasMark ? m.gred : '—';
-      return `<tr>
-        <td style="color:var(--fg-muted);font-size:12px">${i+1}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:12px">
-            ${avatarHTML(p.nama, bio.urlGambar, 32)}
-            <span style="font-weight:600; color:var(--brand-primary)">${p.nama}</span>
-          </div>
-        </td>
-        <td style="color:var(--fg-muted); font-variant-numeric: tabular-nums;">${p.agiliran}</td>
-        <td><span class="badge ${kelasBadge(p.kelas)}">${p.kelas}</span></td>
-        <td style="color:var(--fg-muted)">${p.jantina === 'L' ? 'Lelaki' : 'Perp.'}</td>
-        <td><span class="badge ${hasBio ? 'b-gray' : ''}" style="${!hasBio ? 'opacity:0.3' : ''}">${hasBio ? 'Lengkap' : '—'}</span></td>
-        <td style="text-align: right; font-weight: 600; font-family: var(--font-heading); font-size: 15px;">${hasMark ? Number(m.jumlah).toFixed(1) : '—'}</td>
-        <td style="text-align: center"><span class="${gredClass(gred)}">${gred}</span></td>
-        <td><button class="btn btn-xs" onclick="modalPelajar('${p.nokp}')">Lihat</button></td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--fg-muted);font-style:italic;">Tiada entri pelajar dijumpai.</td></tr>');
-  }
-
-  $('q-pelajar').addEventListener('input', renderRows);
-  $('f-kelas').addEventListener('change', renderRows);
-  renderRows();
-}
-
-// ================================================================
-// SCREEN: REKOD MARKAH
-// ================================================================
-async function renderMarkah() {
-  html('content', `
-    <div class="card" style="margin-bottom:24px; background: var(--brand-primary); color: white; border:none;">
-      <div class="card-title" style="margin-bottom:16px; color: white; font-size: 20px;">Komponen Pentaksiran Berterusan</div>
-      <div class="grid-3">
-        <div style="border-left: 2px solid rgba(255,255,255,0.2); padding-left: 16px;">
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity: 0.7;">HPK1 — Kuiz</div>
-          <div style="font-family: var(--font-heading); font-size:28px; margin:4px 0; line-height: 1;">10%</div>
-          <div style="font-size:12px; opacity: 0.7;">Wajaran: HP1 × 10%</div>
-        </div>
-        <div style="border-left: 2px solid rgba(255,255,255,0.2); padding-left: 16px;">
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity: 0.7;">HPK2 — Amali I</div>
-          <div style="font-family: var(--font-heading); font-size:28px; margin:4px 0; line-height: 1;">60%</div>
-          <div style="font-size:12px; opacity: 0.7;">Wajaran: HP4 (30%) + HP5 (30%)</div>
-        </div>
-        <div style="border-left: 2px solid rgba(255,255,255,0.2); padding-left: 16px;">
-          <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; opacity: 0.7;">HPK3 — Amali II</div>
-          <div style="font-family: var(--font-heading); font-size:28px; margin:4px 0; line-height: 1;">30%</div>
-          <div style="font-size:12px; opacity: 0.7;">Wajaran: HP3 (15%) + HP8 (15%)</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card card-p0" style="overflow: hidden;">
-      <div class="filter-bar">
-        <input id="q-markah" type="text" placeholder="Pencarian nama..." style="flex:1;min-width:200px">
-        <select id="f-markah-kelas">
-          <option>Semua Kelas</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-        </select>
-        <span id="unsaved-count" class="badge b-amber" style="display:none">0 draf</span>
-        <button class="btn btn-primary" id="btn-save-all" onclick="saveAllMarkah()">
-          ${icoSave()} Simpan Rekod
-        </button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Identiti Pelajar</th>
-            <th style="text-align:center">Kuiz <br><span style="font-weight:400;font-size:10px;text-transform:none">/100</span></th>
-            <th style="text-align:center">HP4 <br><span style="font-weight:400;font-size:10px;text-transform:none">/100</span></th>
-            <th style="text-align:center">HP5 <br><span style="font-weight:400;font-size:10px;text-transform:none">/100</span></th>
-            <th style="text-align:center">HP3 <br><span style="font-weight:400;font-size:10px;text-transform:none">/100</span></th>
-            <th style="text-align:center">HP8 <br><span style="font-weight:400;font-size:10px;text-transform:none">/100</span></th>
-            <th style="text-align:right">JUM</th>
-            <th>Gred</th>
-          </tr></thead>
-          <tbody id="tbody-markah"></tbody>
-        </table>
-      </div>
-    </div>`);
-
-  function renderMarkahRows() {
-    const q = $('q-markah').value.toLowerCase();
-    const kls = $('f-markah-kelas').value;
-    const filtered = PELAJAR_CACHE.filter(p => {
-      const mq = !q || p.nama.toLowerCase().includes(q);
-      const mk = kls === 'Semua Kelas' || p.kelas === kls;
-      return mq && mk;
-    });
-
-    html('tbody-markah', filtered.map(p => {
-      const m = { ...(MARKAH_CACHE[p.nokp] || {}), ...(UNSAVED_MARKAH[p.nokp] || {}) };
-      const calc = hitungMarkahClient(m);
-      const hasMark = calc.jumlah > 0 || Object.keys(m).length > 0;
-      const gred = hasMark ? tentukanGredClient(calc.jumlah) : '—';
-      const isUnsaved = !!UNSAVED_MARKAH[p.nokp];
-
-      return `<tr id="row-${p.nokp}" ${isUnsaved ? 'style="background:var(--accent-warning-bg)"' : ''}>
-        <td>
-          <div style="font-weight:600; color:var(--brand-primary)">${p.nama}</div>
-          <div style="display:flex;gap:8px;margin-top:4px;align-items:center;">
-            <span class="badge ${kelasBadge(p.kelas)}" style="font-size:9px">${p.kelas}</span>
-            <span style="font-size:11px;color:var(--fg-muted);font-variant-numeric: tabular-nums;">${p.agiliran}</span>
-          </div>
-        </td>
-        ${['kuiz','hp4','hp5','hp3','hp8'].map(key => `
-        <td style="text-align:center"><input class="mark-input ${UNSAVED_MARKAH[p.nokp]?.[key] !== undefined ? 'changed' : ''}"
-          data-nokp="${p.nokp}" data-key="${key}" type="number" min="0" max="100" step="0.5"
-          value="${m[key] !== undefined && m[key] !== null ? m[key] : ''}" placeholder="—"
-          oninput="onMarkahInput(this)"/></td>`).join('')}
-        <td id="tot-${p.nokp}" style="text-align:right; font-family: var(--font-heading); font-size: 16px; font-weight: 600;">
-          ${hasMark ? calc.jumlah.toFixed(1) : '—'}
-        </td>
-        <td id="gred-${p.nokp}" style="width:60px;"><span class="${gredClass(gred)}">${gred}</span></td>
-      </tr>`;
-    }).join(''));
-  }
-
-  $('q-markah').addEventListener('input', renderMarkahRows);
-  $('f-markah-kelas').addEventListener('change', renderMarkahRows);
-  renderMarkahRows();
-}
-
-function onMarkahInput(el) {
-  const nokp = el.dataset.nokp;
-  const key = el.dataset.key;
-  const val = el.value === '' ? null : Math.min(100, Math.max(0, parseFloat(el.value) || 0));
-
-  if (!UNSAVED_MARKAH[nokp]) UNSAVED_MARKAH[nokp] = {};
-  UNSAVED_MARKAH[nokp][key] = val;
-  el.classList.add('changed');
-
-  const base = MARKAH_CACHE[nokp] || {};
-  const merged = { ...base, ...UNSAVED_MARKAH[nokp] };
-  const calc = hitungMarkahClient(merged);
-  const hasMark = Object.values(merged).some(v => v !== null && v !== undefined && v !== '');
-  const gred = hasMark ? tentukanGredClient(calc.jumlah) : '—';
-
-  if ($('tot-' + nokp)) $('tot-' + nokp).textContent = hasMark ? calc.jumlah.toFixed(1) : '—';
-  if ($('gred-' + nokp)) $('gred-' + nokp).innerHTML = `<span class="${gredClass(gred)}">${gred}</span>`;
-
-  const $row = $('row-' + nokp);
-  if ($row) $row.style.background = 'var(--accent-warning-bg)';
-
-  const count = Object.keys(UNSAVED_MARKAH).length;
-  const countEl = $('unsaved-count');
-  if (countEl) {
-    countEl.style.display = count > 0 ? 'inline-flex' : 'none';
-    countEl.textContent = count + ' draf';
-  }
-}
-
-async function saveAllMarkah() {
-  const btn = $('btn-save-all');
-  if (!btn) return;
-  if (Object.keys(UNSAVED_MARKAH).length === 0) { notify('Tiada draf baru.', 'info'); return; }
-
-  btn.disabled = true;
-  btn.textContent = 'Menyimpan...';
-
-  try {
-    const rows = [];
-    for (const nokp of Object.keys(UNSAVED_MARKAH)) {
-      const p = PELAJAR_CACHE.find(x => x.nokp === nokp);
-      if (!p) continue;
-      const base = MARKAH_CACHE[nokp] || {};
-      const merged = { ...base, ...UNSAVED_MARKAH[nokp] };
-      rows.push({
-        nokp: p.nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
-        kuiz: merged.kuiz ?? null, hp4: merged.hp4 ?? null, hp5: merged.hp5 ?? null, 
-        hp3: merged.hp3 ?? null, hp8: merged.hp8 ?? null, dikemaskiniOleh: SESSION.user.nama
-      });
-    }
-
-    const res = await gasCall('saveBatchMarkah', { rows });
-
-    const mRes = await gasCall('getAllMarkah');
-    MARKAH_CACHE = {};
-    (mRes.data || []).forEach(m => { MARKAH_CACHE[m.nokp] = m; });
-    UNSAVED_MARKAH = {};
-
-    notify(res.message || 'Rekod selamat disimpan.', 'success');
-    renderMarkah();
-
-  } catch (e) {
-    notify('Ralat: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = icoSave() + ' Simpan Rekod'; }
-  }
-}
-
-// ================================================================
-// SCREEN: LAPORAN
-// ================================================================
-async function renderLaporan() {
-  html('content', `<div style="text-align:center;padding:80px"><div class="spinner" style="margin:auto"></div></div>`);
-  try {
-    const res = await gasCall('getLaporan');
-    const rows = res.data || [];
-    const withMark = rows.filter(r => r.jumlah !== null && r.jumlah !== undefined);
-
-    const gradeOrder = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
-    const gradeDist = {}; gradeOrder.forEach(g => gradeDist[g] = 0);
-    withMark.forEach(r => { if (r.gred) gradeDist[r.gred] = (gradeDist[r.gred] || 0) + 1; });
-
-    const buckets = Array(10).fill(0);
-    withMark.forEach(r => { const i = Math.min(9, Math.floor(r.jumlah / 10)); buckets[i]++; });
-
-    const compKeys = ['kuiz','hp4','hp5','hp3','hp8'];
-    const compLabels = ['Kuiz (10%)','HP4 (30%)','HP5 (30%)','HP3 (15%)','HP8 (15%)'];
-    const compAvg = compKeys.map(k => {
-      const vals = withMark.map(r => parseFloat(r[k])).filter(v => !isNaN(v) && v > 0);
-      return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
-    });
-
-    html('content', `
-      <div class="tabs">
-        <div class="tab active" id="tab-ov" onclick="laporanTab('overview')">Rumusan Deskriptif</div>
-        <div class="tab" id="tab-det" onclick="laporanTab('detail')">Laporan Penuh</div>
-      </div>
-      
-      <div id="laporan-overview">
-        <div class="grid-3" style="margin-bottom:24px">
-          ${['PBKK','PIMK','PMO'].map(k => {
-            const kRows = withMark.filter(r => r.kelas === k);
-            const avg = kRows.length ? (kRows.reduce((s, r) => s + r.jumlah, 0) / kRows.length).toFixed(1) : '—';
-            const total = rows.filter(r => r.kelas === k).length;
-            return `<div class="stat-card"><div class="lbl">Kelas ${k}</div><div class="val">${total} <span style="font-size:14px;color:var(--fg-muted)">pelajar</span></div><div class="sub">Purata Kelas: <strong style="color:var(--fg-primary)">${avg}</strong></div></div>`;
-          }).join('')}
-        </div>
-        <div class="grid-2">
-          <div class="card"><div class="card-title" style="margin-bottom:20px">Taburan Kumulatif</div><canvas id="ch-lap1" height="220"></canvas></div>
-          <div class="card"><div class="card-title" style="margin-bottom:20px">Lengkung Taburan Normal</div><canvas id="ch-lap2" height="220"></canvas></div>
-        </div>
-        <div class="card"><div class="card-title" style="margin-bottom:20px">Purata Pecahan Komponen</div><canvas id="ch-lap3" height="100"></canvas></div>
-      </div>
-      
-      <div id="laporan-detail" class="hidden">
-        <div class="card card-p0">
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Nama Pelajar</th><th>Kelas</th>
-                <th>Kuiz</th><th>HP4</th><th>HP5</th><th>HP3</th><th>HP8</th>
-                <th style="text-align:right">JUMLAH</th><th>Gred</th>
-              </tr></thead>
-              <tbody>
-                ${rows.map((r, i) => `<tr>
-                  <td style="font-size:12px;color:var(--fg-muted)">${i+1}</td>
-                  <td style="font-weight:600;color:var(--brand-primary);max-width:240px">${r.nama}</td>
-                  <td><span class="badge ${kelasBadge(r.kelas)}">${r.kelas}</span></td>
-                  <td>${r.kuiz ?? '—'}</td><td>${r.hp4 ?? '—'}</td><td>${r.hp5 ?? '—'}</td>
-                  <td>${r.hp3 ?? '—'}</td><td>${r.hp8 ?? '—'}</td>
-                  <td style="text-align:right;font-family:var(--font-heading);font-size:16px;font-weight:600">${r.jumlah !== null && r.jumlah !== undefined ? Number(r.jumlah).toFixed(1) : '—'}</td>
-                  <td><span class="${gredClass(r.gred || '—')}">${r.gred || '—'}</span></td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>`);
-
-    setTimeout(() => {
-      const gActive = gradeOrder.filter(g => gradeDist[g] > 0);
-      new Chart($('ch-lap1'), {
-        type:'bar', data:{ labels:gActive, datasets:[{ data:gActive.map(g => gradeDist[g]), backgroundColor:'#112A46', borderRadius:2 }] },
-        options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } }, x:{ grid: { display: false } } } }
-      });
-      new Chart($('ch-lap2'), {
-        type:'bar', data:{ labels:['0-9','10s','20s','30s','40s','50s','60s','70s','80s','90+'], datasets:[{ data:buckets, backgroundColor:'#D6D4CE', borderRadius:2 }] },
-        options:{ plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, ticks:{ stepSize:1 } }, x:{ grid: { display: false } } } }
-      });
-      new Chart($('ch-lap3'), {
-        type:'bar', data:{ labels:compLabels, datasets:[{ data:compAvg, backgroundColor:['#224E7D','#24583C','#24583C','#914F15','#914F15'], borderRadius:2 }] },
-        options:{ indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true, max:100 }, y:{ grid: { display: false } } } }
-      });
-    }, 100);
-
-    window.laporanTab = function(tab) {
-      $('tab-ov').classList.toggle('active', tab === 'overview');
-      $('tab-det').classList.toggle('active', tab === 'detail');
-      $('laporan-overview').classList.toggle('hidden', tab !== 'overview');
-      $('laporan-detail').classList.toggle('hidden', tab !== 'detail');
-    };
-
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
-
-// ================================================================
-// SCREEN: PENILAIAN RAKAN (Pensyarah)
-// ================================================================
-async function renderPeerView() {
-  html('content', `<div style="text-align:center;padding:80px"><div class="spinner" style="margin:auto"></div></div>`);
-  try {
-    const res = await gasCall('getPeerRatings', {});
-    const allRatings = res.data || [];
-
-    html('content', `
-      <div class="card" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <div class="card-title">Matriks Sahsiah & Penilaian Rakan</div>
-          <div class="card-sub">Dimensi: Kepimpinan · Kerjasama · Komunikasi · Komitmen · Sahsiah</div>
-        </div>
-        <select id="f-peer-kelas" onchange="filterPeerCards()" style="padding:10px 14px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-family:var(--font-body); font-size:14px; outline:none;">
-          <option>Semua Kelas</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
-        </select>
-      </div>
-      <div class="grid-3" id="peer-grid"></div>`);
-
-    window._allPeerRatings = allRatings;
-    window.filterPeerCards = function() { buildPeerCards($('f-peer-kelas').value); };
-    buildPeerCards('Semua Kelas');
-
-  } catch (e) { html('content', `<div class="alert alert-danger"><span>⚠</span><span>${e.message}</span></div>`); }
-}
-
-function buildPeerCards(kls) {
-  const allRatings = window._allPeerRatings || [];
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const filtered = PELAJAR_CACHE.filter(p => kls === 'Semua Kelas' || p.kelas === kls);
-
-  html('peer-grid', filtered.map(p => {
-    const ratings = allRatings.filter(r => r['Target_ID'] === p.agiliran);
-    const avgDims = DIMS.map(d => {
-      const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-    });
-    const avg = avgDims.reduce((a, b) => a + b, 0) / 5;
-    
-    return `<div class="card" style="cursor:pointer; transition: transform 0.2s; border-top: 3px solid var(--brand-primary);" onclick="modalPeerDetail('${p.agiliran}')" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-        ${avatarHTML(p.nama, null, 42)}
-        <div>
-          <div style="font-size:14px;font-weight:700;color:var(--brand-primary);line-height:1.3">${p.nama.split(' ').slice(0,3).join(' ')}</div>
-          <div style="font-size:12px;color:var(--fg-muted);margin-top:2px;">${p.kelas} · ${ratings.length} set dinilai</div>
-        </div>
-      </div>
-      <canvas id="sp-${p.nokp}" height="160"></canvas>
-      <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px dashed var(--border-color);">
-        <span style="font-size:12px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:0.05em">Indeks Purata</span><br>
-        <span style="font-family:var(--font-heading);font-size:24px;font-weight:600;color:var(--brand-primary);">${avg.toFixed(1)}</span><span style="color:var(--fg-muted)">/5</span>
-      </div>
-    </div>`;
-  }).join(''));
-
-  setTimeout(() => {
-    filtered.forEach(p => {
-      const ratings = allRatings.filter(r => r['Target_ID'] === p.agiliran);
-      const avgDims = DIMS.map(d => {
-        const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-        return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-      });
-      buildSpider('sp-' + p.nokp, DIMS, avgDims);
-    });
-  }, 100);
-}
-
-// ================================================================
-// SCREEN: PELAJAR — BIODATA
-// ================================================================
-async function renderBio() {
-  const u = SESSION.user;
-  showLoading('Mengekstrak profil akademik...');
-  let bio = {};
-  try {
-    const res = await gasCall('getBiodata', { nokp: u.nokp });
-    bio = res.data || {};
-  } catch(e) {}
-  hideLoading();
-
-  html('content', `
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:24px; text-align:center;">Pasport Akademik</div>
-        <div style="text-align:center;margin-bottom:24px">
-          ${avatarHTML(u.nama, bio.urlGambar, 96)}
-          <div style="font-family:var(--font-heading);font-size:20px;font-weight:600;color:var(--brand-primary);margin-top:12px;">${u.nama}</div>
-          <div style="font-size:13px;color:var(--fg-muted);margin-top:4px;letter-spacing:0.05em">${u.kelas} | ${u.agiliran}</div>
-        </div>
-        <div class="info-row"><div class="info-label">No. Pengenalan</div><div class="info-value" style="font-variant-numeric:tabular-nums;">${u.nokp}</div></div>
-        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value" style="font-variant-numeric:tabular-nums;">${u.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">Pengkhususan</div><div class="info-value">${u.kelas}</div></div>
-        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${u.jantina === 'L' ? 'Lelaki' : 'Perempuan'}</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title" style="margin-bottom:20px">Kemas Kini Maklumat</div>
-        <div class="photo-drop" onclick="$('file-photo').click()" style="margin-bottom:24px;">
-          <div id="photo-prev">
-            ${bio.urlGambar ? `<img src="${bio.urlGambar}" class="preview"/>` : `<div style="font-size:24px; margin-bottom:12px">📷</div>`}
-            <div style="font-size:13px;font-weight:500;">Klik untuk muat naik profil</div>
-            <div style="font-size:11px;color:var(--fg-muted);margin-top:4px">Sistem akan mengecilkan saiz secara automatik</div>
-          </div>
-        </div>
-        <input type="file" id="file-photo" accept="image/*" style="display:none" onchange="handlePhoto(event)"/>
-
-        <div class="grid-2" style="gap:16px;">
-          <div class="form-group">
-            <label>Jawatan Kumpulan</label>
-            <select id="bio-jawatan">
-              <option value="">— Pilih —</option>
-              ${['Pengerusi','Setiausaha','Bendahari','Ahli'].map(j => `<option ${bio.jawatan === j ? 'selected' : ''}>${j}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Kumpulan</label>
-            <select id="bio-kumpulan">
-              <option value="">— Pilih —</option>
-              ${[1,2,3,4,5,6,7,8,9,10].map(n => `<option ${bio.kumpulan == n ? 'selected' : ''}>Kumpulan ${n}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label>No. Dalam Kumpulan</label>
-          <input type="number" id="bio-nodlm" min="1" max="20" value="${bio.noDlmKumpulan || ''}" placeholder="1"/>
-        </div>
-        
-        <div class="divider"></div>
-        
-        <div class="form-group">
-          <label>Rekod Alahan / Kesihatan</label>
-          <textarea id="bio-alahan" rows="2" placeholder="Nyatakan jika ada...">${bio.alahan || ''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>Keperluan Ubat-ubatan</label>
-          <textarea id="bio-ubat" rows="2" placeholder="Nyatakan jika ada...">${bio.ubat || ''}</textarea>
-        </div>
-        <div class="form-group" style="margin-bottom: 24px;">
-          <label>Talian Kecemasan</label>
-          <input type="tel" id="bio-notel" value="${bio.noTelKecemasan || ''}" placeholder="Cth: 01X-XXXXXXX"/>
-        </div>
-        
-        <button class="btn btn-primary btn-block" id="btn-save-bio" onclick="saveBio()" style="padding: 14px;">Simpan Profil</button>
-      </div>
-    </div>`);
-
-  window._pendingPhoto = bio.urlGambar || null;
-}
-
-// ── SISTEM PEMAMPATAN GAMBAR (IMAGE COMPRESSOR) ──
-function handlePhoto(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(event) {
-    const img = new Image();
-    img.onload = function() {
-      // Mengecilkan dimensi gambar secara automatik
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const MAX_SIZE = 150; // Mengekalkan saiz resolusi rendah yang tajam (mengelakkan error > 50k aksara)
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) { if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; } } 
-      else { if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; } }
-
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Mampatkan terus ke kualiti 60% (Sangat ringan untuk Google Sheets)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-
-      window._pendingPhoto = dataUrl;
-      $('photo-prev').innerHTML = `<img src="${dataUrl}" class="preview" style="border-radius:12px;"/><div style="font-size:13px;font-weight:500;color:var(--brand-primary)">Profil telah dimampatkan & sedia disimpan</div>`;
-    };
-    img.src = event.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function saveBio() {
-  const u = SESSION.user;
-  const btn = $('btn-save-bio');
-  btn.disabled = true; btn.textContent = 'Menyimpan...';
-  try {
-    await gasCall('saveBiodata', {
-      nokp: u.nokp, nama: u.nama, kelas: u.kelas, agiliran: u.agiliran,
-      jawatan: $('bio-jawatan').value, kumpulan: $('bio-kumpulan').value, noDlmKumpulan: $('bio-nodlm').value,
-      alahan: $('bio-alahan').value, ubat: $('bio-ubat').value, noTelKecemasan: $('bio-notel').value,
-      urlGambar: window._pendingPhoto || ''
-    });
-    notify('Profil akademik berjaya dikemas kini.', 'success');
-  } catch(e) { notify('Ralat: ' + e.message, 'error'); } 
-  finally { btn.disabled = false; btn.textContent = 'Simpan Profil'; }
-}
-
-// ================================================================
-// SCREEN: PELAJAR — NILAI RAKAN
-// ================================================================
-async function renderPeerHantar() {
-  const u = SESSION.user;
-  showLoading('Menyusun senarai rakan...');
-  let bio = {}, peers = [], submitted = [];
-  try {
-    const bRes = await gasCall('getBiodata', { nokp: u.nokp });
-    bio = bRes.data || {};
-    if (bio.kumpulan) {
-      const pRes = await gasCall('getKumpulanPeer', { nokp: u.nokp, kelas: u.kelas, kumpulan: bio.kumpulan });
-      peers = pRes.data || [];
-      const rRes = await gasCall('getPeerRatings', { reviewerId: u.agiliran });
-      submitted = (rRes.data || []).map(r => r['Target_ID']);
-    }
-  } catch(e) {}
-  hideLoading();
-
-  if (!bio.kumpulan) {
-    html('content', `
-      <div class="card" style="text-align:center; padding: 60px 20px;">
-        <div style="font-size:32px; margin-bottom:16px;">⚠️</div>
-        <h3 style="font-family:var(--font-heading); font-size:20px; color:var(--brand-primary); margin-bottom:8px;">Profil Tidak Lengkap</h3>
-        <p style="color:var(--fg-muted); max-width:400px; margin:0 auto 24px;">Anda perlu melengkapkan maklumat kumpulan di Profil Akademik terlebih dahulu sebelum menilai rakan.</p>
-        <button class="btn btn-primary" onclick="navigateTo('bio')">Ke Profil Akademik</button>
-      </div>`);
-    return;
-  }
-
-  html('content', `
-    <div class="card" style="margin-bottom:24px; border-top:3px solid var(--brand-primary);">
-      <div class="card-title" style="font-size:22px;">Penilaian Rakan Sebaya — ${bio.kumpulan}</div>
-      <div class="card-sub" style="font-size:14px;">Kohort ${u.kelas} | Peranan Anda: <strong style="color:var(--fg-primary)">${bio.jawatan || 'Ahli'}</strong></div>
-    </div>
-    <div class="grid-2" id="peer-rate-grid">
-      ${peers.length === 0
-        ? `<div class="card" style="grid-column: 1 / -1;"><div class="empty-state"><div class="ic">👥</div><p>Tiada rakan dijumpai. Rakan anda perlu melengkapkan pendaftaran kumpulan.</p></div></div>`
-        : peers.map(peer => {
-          const done = submitted.includes(peer.agiliran);
-          const pbio = peer.biodata || {};
-          return `<div class="card" style="${done ? 'opacity:0.6; background:var(--bg-base);' : ''}">
-            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px dashed var(--border-color)">
-              ${avatarHTML(peer.nama, pbio.urlGambar, 48)}
-              <div style="flex:1">
-                <div style="font-family:var(--font-heading);font-size:16px;font-weight:600;color:var(--brand-primary);">${peer.nama.split(' ').slice(0,3).join(' ')}</div>
-                <div style="font-size:12px;color:var(--fg-muted);margin-top:4px;">${pbio.jawatan || 'Ahli Kumpulan'}</div>
-              </div>
-              ${done ? `<span class="badge b-gray">Selesai Dinilai</span>` : ''}
-            </div>
-            ${done
-              ? `<div style="text-align:center;padding:20px;color:var(--fg-muted);font-style:italic;">Borang penilaian telah dihantar.</div>`
-              : `<div id="rf-${peer.nokp}">
-                  ${['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'].map(dim => `
-                  <div style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
-                    <div style="font-size:13px;font-weight:600;color:var(--fg-primary)">${dim}</div>
-                    <div class="star-group" data-dim="${dim}">
-                      ${[1,2,3,4,5].map(n => `<div class="star" data-val="${n}" onclick="pickStar(this,${n})">${n}</div>`).join('')}
+                <!-- Profil Card -->
+                <div class="bg-white/5 p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] flex items-center gap-4 sm:gap-6">
+                    <div class="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-black/40 overflow-hidden border border-white/20 flex-shrink-0 flex items-center justify-center">
+                        <img id="sImg" class="w-full h-full object-cover hidden">
+                        <i id="sPlIcon" class="fas fa-user text-white/20 text-2xl sm:text-3xl"></i>
                     </div>
-                  </div>`).join('')}
-                  <button class="btn btn-primary btn-block" style="margin-top:12px; padding:12px;" onclick="submitRating('${peer.nokp}','${peer.agiliran}','${bio.kumpulan}')">Hantar Borang</button>
-                </div>`}
-          </div>`;
-        }).join('')
-      }`);
-}
+                    <div class="min-w-0">
+                        <h2 id="sNameDisplay" class="text-base sm:text-2xl font-bold uppercase leading-tight truncate">--</h2>
+                        <p id="sKPDisplay" class="text-xs sm:text-sm font-mono text-indigo-300 mt-0.5">--</p>
+                        <p id="sKelasDisplay" class="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">--</p>
+                    </div>
+                </div>
 
-function pickStar(el, val) {
-  const group = el.closest('.star-group');
-  group.querySelectorAll('.star').forEach(s => {
-    s.classList.toggle('on', parseInt(s.dataset.val) <= val);
-  });
-  group.dataset.sel = val;
-}
-
-async function submitRating(targetNokp, targetAgiliran, kumpulan) {
-  const container = $('rf-' + targetNokp);
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const payload = { reviewerId: SESSION.user.agiliran, targetId: targetAgiliran, siri: 1, kumpulan };
-  let valid = true;
-  DIMS.forEach(d => {
-    const group = container.querySelector(`.star-group[data-dim="${d}"]`);
-    if (!group || !group.dataset.sel) { valid = false; return; }
-    payload[d.toLowerCase()] = parseFloat(group.dataset.sel);
-  });
-
-  if (!valid) { notify('Mohon lengkapkan semua kriteria penilaian.', 'error'); return; }
-
-  try {
-    await gasCall('savePeerRating', payload);
-    notify('Borang dinilai dan dihantar.', 'success');
-    renderPeerHantar();
-  } catch(e) { notify('Ralat pelayan.', 'error'); }
-}
-
-// ================================================================
-// SPIDER CHART (Editorial Restyle)
-// ================================================================
-function buildSpider(canvasId, labels, data) {
-  const existing = Chart.getChart(canvasId);
-  if (existing) existing.destroy();
-  const el = $(canvasId);
-  if (!el) return;
-  new Chart(el, {
-    type: 'radar',
-    data: { labels, datasets: [{
-      data, fill: true,
-      backgroundColor: 'rgba(17, 42, 70, 0.08)',
-      borderColor: '#112A46',
-      pointBackgroundColor: '#112A46', pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff', pointHoverBorderColor: '#112A46',
-      borderWidth: 2
-    }]},
-    options: {
-      scales: { 
-        r: { 
-          min: 0, max: 5, 
-          ticks: { stepSize: 1, display: false }, 
-          pointLabels: { font: { family: 'Outfit', size: 11, weight: 600 }, color: '#64676C' },
-          grid: { color: '#EBE9E1' }, angleLines: { color: '#EBE9E1' }
-        } 
-      },
-      plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false
-    }
-  });
-}
-
-// ================================================================
-// MODALS
-// ================================================================
-async function modalPelajar(nokp) {
-  const p = PELAJAR_CACHE.find(x => x.nokp === nokp);
-  if (!p) return;
-  
-  // Ambil bacaan pantas terus dari memory (jika ada) untuk elak isu loading lambat
-  let bio = {};
-  if (window._GLOBAL_BIODATA_MAP && window._GLOBAL_BIODATA_MAP[nokp]) {
-    bio = window._GLOBAL_BIODATA_MAP[nokp];
-  } else {
-    try { const r = await gasCall('getBiodata', { nokp }); bio = r.data || {}; } catch(e) {}
-  }
-  
-  const m = MARKAH_CACHE[nokp];
-  const gred = m && m.gred ? m.gred : '—';
-
-  html('modal-wrap', `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Dossier Pelajar</h3>
-          <button class="btn-close" onclick="closeModal()">×</button>
-        </div>
-        <div style="text-align:center;margin-bottom:24px">
-          ${avatarHTML(p.nama, bio.urlGambar, 80)}
-          <div style="font-family:var(--font-heading);font-size:18px;font-weight:600;color:var(--brand-primary);margin-top:12px;">${p.nama}</div>
-          <span class="badge b-gray" style="margin-top:8px">${p.kelas}</span>
-        </div>
-        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value" style="font-variant-numeric:tabular-nums">${p.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">No. Pengenalan</div><div class="info-value" style="font-variant-numeric:tabular-nums">${p.nokp}</div></div>
-        ${bio.jawatan ? `<div class="info-row"><div class="info-label">Jawatan Kump.</div><div class="info-value">${bio.jawatan}</div></div>` : ''}
-        
-        <div class="divider"></div>
-        <div style="font-family:var(--font-heading);font-size:16px;font-weight:600;margin-bottom:16px;">Ringkasan Markah</div>
-        
-        <div class="grid-3" style="gap:12px;margin-bottom:20px">
-          <div class="stat-card" style="padding:16px"><div class="lbl">HPK1</div><div class="val" style="font-size:24px">${m && m.hpk1 !== null ? Number(m.hpk1).toFixed(1) : '—'}</div></div>
-          <div class="stat-card" style="padding:16px"><div class="lbl">HPK2</div><div class="val" style="font-size:24px">${m && m.hpk2 !== null ? Number(m.hpk2).toFixed(1) : '—'}</div></div>
-          <div class="stat-card" style="padding:16px"><div class="lbl">HPK3</div><div class="val" style="font-size:24px">${m && m.hpk3 !== null ? Number(m.hpk3).toFixed(1) : '—'}</div></div>
-        </div>
-        <div style="text-align:center; background:var(--bg-base); padding:20px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-          <span style="font-size:13px; color:var(--fg-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:600; display:block; margin-bottom:4px;">Skor Muktamad</span>
-          <span style="font-family:var(--font-heading);font-size:42px;font-weight:600;line-height:1" class="${gredClass(gred)}">${m && m.jumlah !== null ? Number(m.jumlah).toFixed(1) : '—'}</span>
-          <span style="font-size:20px;margin-left:8px;font-family:var(--font-heading);font-weight:600;" class="${gredClass(gred)}">${gred}</span>
-        </div>
-      </div>
-    </div>`);
-}
-
-async function modalPeerDetail(targetAgiliran) {
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  let ratings = [];
-  try { const r = await gasCall('getPeerRatings', { targetId: targetAgiliran }); ratings = r.data || []; } catch(e) {}
-  const avgDims = DIMS.map(d => {
-    const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  });
-  const p = PELAJAR_CACHE.find(x => x.agiliran === targetAgiliran) || {};
-
-  html('modal-wrap', `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Perincian Sahsiah</h3>
-          <button class="btn-close" onclick="closeModal()">×</button>
-        </div>
-        <div style="text-align:center; font-family:var(--font-heading); font-size:18px; font-weight:600; color:var(--brand-primary); margin-bottom: 24px;">${(p.nama||'')}</div>
-        <div style="height: 240px; margin-bottom:24px;">
-          <canvas id="sp-modal" height="240"></canvas>
-        </div>
-        <div class="divider"></div>
-        <div>
-          ${DIMS.map((d, i) => `
-          <div class="mark-row">
-            <div style="flex:1;font-size:14px;font-weight:500">${d}</div>
-            <div style="width:50px;text-align:right;font-family:var(--font-heading);font-size:16px;font-weight:600;">${avgDims[i].toFixed(1)}</div>
-            <div style="width:120px;padding-left:12px">
-              <div class="progress-bar"><div class="progress-fill" style="width:${avgDims[i]/5*100}%;background:var(--brand-primary)"></div></div>
+                <!-- Upload Card -->
+                <div class="bg-indigo-900/20 border border-indigo-500/30 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl">
+                    <div class="flex justify-between items-center flex-wrap gap-3">
+                        <div>
+                            <p class="text-[10px] uppercase font-bold opacity-50">Bukti Gambar Aktiviti</p>
+                            <p id="sStatus" class="font-bold text-orange-400 text-sm mt-0.5">PENDING</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="document.getElementById('fIn').click()" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">
+                                <i class="fas fa-image mr-1"></i>PILIH
+                            </button>
+                            <button onclick="hUp()" id="upBtn" class="btn-prime px-4 py-2 rounded-xl text-xs font-bold">
+                                <i class="fas fa-upload mr-1"></i>UPLOAD
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Preview gambar yang dipilih -->
+                    <div id="imgPreviewWrap" class="hidden mt-3 rounded-xl overflow-hidden border border-white/10">
+                        <img id="imgPreview" class="w-full max-h-40 object-cover">
+                    </div>
+                    <input type="file" id="fIn" hidden accept="image/*" onchange="previewImage(this)">
+                </div>
             </div>
-          </div>`).join('')}
+
+            <!-- Kanan: Senarai Rakan -->
+            <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col" style="min-height:260px; max-height: 420px;">
+                <h3 class="text-xs sm:text-sm font-bold text-indigo-400 mb-3 border-b border-white/10 pb-2">
+                    <i class="fas fa-users mr-2"></i>Penilaian Rakan Kumpulan
+                </h3>
+                <div id="peerList" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1">
+                    <p class="text-xs text-center text-slate-500 mt-8">Memuatkan rakan sekelas...</p>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>`);
-  setTimeout(() => buildSpider('sp-modal', DIMS, avgDims), 100);
-}
+    </div>
 
-function closeModal() { html('modal-wrap', ''); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    <!-- ===== PEER MODAL ===== -->
+    <div id="peerModal" class="hidden fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+        <!-- Mobile: slide up dari bawah. Desktop: tengah -->
+        <div class="glass w-full sm:max-w-lg p-6 sm:p-8 relative rounded-t-[2rem] sm:rounded-[2rem] max-h-[92dvh] overflow-y-auto custom-scroll">
+            <!-- Handle bar untuk mobile -->
+            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden"></div>
+            <button onclick="closeModal()" class="absolute top-5 right-5 text-slate-400 w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+            <h3 class="text-base font-bold text-indigo-400 mb-1">Penilaian Ahli Kumpulan</h3>
+            <p id="peerNameDisplay" class="font-bold text-lg mb-5 border-b border-white/10 pb-4 pr-8">Nama Rakan</p>
+            <div class="space-y-5 text-sm mb-6">
+                <div>
+                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">1. Kepimpinan <span class="opacity-60">(Memimpin & arahan jelas)</span></p>
+                    <input type="range" id="q1" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v1').innerText=this.value">
+                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
+                        <span>1 Lemah</span><span id="v1" class="font-bold text-indigo-400 text-sm">3</span><span>5 Baik</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">2. Autonomi <span class="opacity-60">(Keputusan berdikari)</span></p>
+                    <input type="range" id="q2" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v2').innerText=this.value">
+                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
+                        <span>1</span><span id="v2" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">3. Tanggungjawab <span class="opacity-60">(Dedikasi)</span></p>
+                    <input type="range" id="q3" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v3').innerText=this.value">
+                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
+                        <span>1</span><span id="v3" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
+                    </div>
+                </div>
+                <div>
+                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">4. Kerjasama <span class="opacity-60">(Menjayakan aktiviti)</span></p>
+                    <input type="range" id="q4" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v4').innerText=this.value">
+                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
+                        <span>1</span><span id="v4" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="submitPeerEval()" id="peerSubBtn" class="btn-prime w-full py-4 rounded-xl font-bold tracking-widest text-sm">HANTAR PENILAIAN</button>
+        </div>
+    </div>
 
-// ================================================================
-// CLIENT-SIDE LOGIC
-// ================================================================
-function hitungMarkahClient(m) {
-  const k = parseFloat(m.kuiz) || 0; const hp4 = parseFloat(m.hp4) || 0;
-  const hp5 = parseFloat(m.hp5) || 0; const hp3 = parseFloat(m.hp3) || 0; const hp8 = parseFloat(m.hp8) || 0;
-  const hpk1 = +(k * 0.10).toFixed(2);
-  const hpk2 = +(hp4 * 0.30 + hp5 * 0.30).toFixed(2);
-  const hpk3 = +(hp3 * 0.15 + hp8 * 0.15).toFixed(2);
-  const jumlah = +(hpk1 + hpk2 + hpk3).toFixed(2);
-  return { hpk1, hpk2, hpk3, jumlah };
-}
+    <!-- ===== LECTURER DASHBOARD ===== -->
+    <div id="lecturerDash" class="hidden-section glass w-full max-w-7xl p-4 sm:p-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-5 sm:mb-8 border-b border-white/5 pb-4 sm:pb-5 font-bold text-indigo-400 italic">
+            <h2 class="text-xs sm:text-sm">LECTURER_PORTAL</h2>
+            <button onclick="logout()" class="px-4 py-2 border border-white/10 rounded-full text-[10px] text-red-400">LOGOUT</button>
+        </div>
 
-function tentukanGredClient(j) {
-  if (j >= 90) return 'A+'; if (j >= 80) return 'A'; if (j >= 75) return 'A-';
-  if (j >= 70) return 'B+'; if (j >= 65) return 'B'; if (j >= 60) return 'B-';
-  if (j >= 55) return 'C+'; if (j >= 50) return 'C'; if (j >= 45) return 'C-';
-  if (j >= 40) return 'D'; return 'F';
-}
+        <!-- Layout: mobile = stack, lg = side by side -->
+        <div class="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 text-sm">
 
-// ================================================================
-// INIT
-// ================================================================
-window.addEventListener('load', () => {
-  if (typeof google !== 'undefined' && google.script) {
-    hideLoading();
-    $('screen-auth').classList.remove('hidden');
-  } else {
-    $('loading-overlay').querySelector('.spinner').style.display = 'none';
-    $('loading-overlay').querySelector('.loading-text').innerHTML = 
-      '<span style="font-size:42px; display:block; margin-bottom:12px;">⚠️</span>' +
-      '<strong style="color:var(--accent-danger); font-size:20px; display:block; margin-bottom:8px;">Ralat Eksekusi Apps Script</strong>' +
-      '<span style="font-size:14px; color:var(--fg-muted); font-weight:normal; font-family:var(--font-body); line-height:1.5; display:block;">Sistem ini tidak boleh diakses melalui GitHub Pages.<br>Sila buka menggunakan pautan rasmi Google Apps Script.</span>';
-  }
-});
+            <!-- Senarai pelajar — mobile: fixed height scroll, desktop: tall scroll -->
+            <div class="lg:col-span-3 overflow-y-auto custom-scroll pr-1 rounded-2xl" style="max-height: 300px;" id="lListWrap">
+                <div id="lList"></div>
+            </div>
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !$('screen-auth').classList.contains('hidden')) doLogin();
-});
-</script>
+            <!-- Panel Markah -->
+            <div id="gradingPanel" class="lg:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 hidden">
+
+                <!-- Kiri: Info pelajar + Radar -->
+                <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl space-y-4 sm:space-y-6">
+                    <div class="flex items-center gap-3 sm:gap-4">
+                        <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-indigo-500 bg-white/5 flex-shrink-0 flex items-center justify-center">
+                            <img id="li" class="w-full h-full object-cover hidden">
+                            <i id="liPlaceholder" class="fas fa-user text-white/20 text-xl sm:text-2xl"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 id="lName" class="font-bold text-base sm:text-lg uppercase leading-tight truncate">--</h3>
+                            <p id="lKP" class="text-[10px] font-mono text-slate-400">--</p>
+                        </div>
+                    </div>
+                    <div class="bg-black/20 rounded-2xl p-3 sm:p-4 relative flex flex-col items-center" style="height:220px;">
+                        <p class="text-[10px] text-center text-slate-400 font-bold mb-2">Penilaian Rakan Sebaya (Kumpulan)</p>
+                        <canvas id="radarChart" class="flex-1"></canvas>
+                        <p id="noPeerMsg" class="absolute inset-0 flex items-center justify-center text-xs text-red-400 bg-black/60 rounded-2xl hidden backdrop-blur-sm z-10 font-bold">Belum ada penilaian rakan.</p>
+                    </div>
+                </div>
+
+                <!-- Kanan: Input markah -->
+                <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl flex flex-col">
+                    <div class="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+                        <div class="bg-black/20 p-4 rounded-2xl">
+                            <p class="text-[10px] font-bold text-indigo-400 uppercase mb-3">Tugasan 1: Penulisan (40%)</p>
+                            <div class="flex gap-3 sm:gap-4">
+                                <div class="flex-1">
+                                    <label class="text-[9px] opacity-50 block mb-1">HP1 (Max 30)</label>
+                                    <input type="number" id="h1" inputmode="decimal" oninput="calcTotal()"
+                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
+                                </div>
+                                <div class="flex-1">
+                                    <label class="text-[9px] opacity-50 block mb-1">HP5 (Max 10)</label>
+                                    <input type="number" id="h5" inputmode="decimal" oninput="calcTotal()"
+                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-black/20 p-4 rounded-2xl border border-indigo-500/30">
+                            <p class="text-[10px] font-bold text-indigo-400 uppercase mb-3">Tugasan 2: Penganjuran (60%)</p>
+                            <div class="flex gap-3 sm:gap-4">
+                                <div class="flex-1">
+                                    <label class="text-[9px] opacity-50 text-indigo-300 block mb-1">HP8 (Max 30)</label>
+                                    <input type="number" id="h8" inputmode="decimal" oninput="calcTotal()"
+                                        class="w-full bg-indigo-500/20 p-3 rounded-lg outline-none text-center text-base font-bold">
+                                </div>
+                                <div class="flex-1">
+                                    <label class="text-[9px] opacity-50 block mb-1">HP10 (Max 30)</label>
+                                    <input type="number" id="h10" inputmode="decimal" oninput="calcTotal()"
+                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-end mb-4 px-1">
+                        <div><p class="text-xs opacity-50 uppercase">Markah Akhir</p><p id="tm" class="text-4xl font-black text-white">0.0</p></div>
+                        <div class="text-right"><p class="text-xs opacity-50 uppercase">Gred</p><p id="gd" class="text-4xl font-black text-indigo-400">F</p></div>
+                    </div>
+                    <div id="justArea" class="hidden mb-4">
+                        <textarea id="justTxt" oninput="validateSave()" rows="3"
+                            class="w-full bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-xs outline-none focus:border-red-500 resize-none"
+                            placeholder="A+ memerlukan justifikasi mandatori..."></textarea>
+                    </div>
+                    <button onclick="saveMarks()" id="saveLecBtn" class="mt-auto btn-prime w-full py-4 rounded-2xl font-bold tracking-widest shadow-xl text-sm">SIMPAN MARKAH</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = "https://script.google.com/macros/s/AKfycbxufZgAB9OWBbVzGzBascudDu498uJB80q9PtWDAFWLzDCZD5MxYqGKvIRyC38JgkId1Q/exec";
+        let role = 'S', myData = null, lData = [], curS = null, radarInstance = null, targetPeer = null;
+
+        // Fix URL Google Drive
+        function fixDriveUrl(url) {
+            if (!url || url === "") return "";
+            let fileId = "";
+            const matchD = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (matchD) fileId = matchD[1];
+            if (!fileId) { const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/); if (matchId) fileId = matchId[1]; }
+            return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
+        }
+
+        function loadImage(imgEl, placeholderEl, url) {
+            if (!url || url === "") { imgEl.classList.add('hidden'); placeholderEl.classList.remove('hidden'); return; }
+            imgEl.onload = () => { imgEl.classList.remove('hidden'); placeholderEl.classList.add('hidden'); };
+            imgEl.onerror = () => { imgEl.classList.add('hidden'); placeholderEl.classList.remove('hidden'); };
+            imgEl.src = fixDriveUrl(url);
+        }
+
+        function switchRole(r) {
+            role = r;
+            document.getElementById('ts').className = r === 'S' ? 'flex-1 py-3 rounded-xl bg-indigo-600' : 'flex-1 py-3 rounded-xl text-slate-400';
+            document.getElementById('tl').className = r === 'L' ? 'flex-1 py-3 rounded-xl bg-indigo-600' : 'flex-1 py-3 rounded-xl text-slate-400';
+            document.getElementById('userPass').classList.toggle('hidden', r === 'S');
+            const uid = document.getElementById('userId');
+            uid.placeholder = r === 'S' ? 'No. Kad Pengenalan' : 'Emel Pensyarah';
+            uid.inputMode = r === 'S' ? 'numeric' : 'email';
+        }
+
+        async function handleAuth() {
+            const id = document.getElementById('userId').value.trim();
+            const pw = document.getElementById('userPass').value.trim();
+            if (!id) return alert("Sila isikan ruangan input.");
+            const btn = document.getElementById('authBtn'); btn.disabled = true; btn.textContent = "VERIFYING...";
+            try {
+                if (role === 'S') {
+                    const r = await fetch(`${API}?action=checkLogin&noKP=${encodeURIComponent(id)}`);
+                    const o = await r.json();
+                    if (o.status === "success") { localStorage.setItem('userMPU', JSON.stringify(o.data)); initStudent(o.data); }
+                    else alert(o.message);
+                } else {
+                    const r = await fetch(`${API}?action=lecturerLogin&email=${encodeURIComponent(id)}&pass=${encodeURIComponent(pw)}`);
+                    const o = await r.json();
+                    if (o.status === "success") { localStorage.setItem('le', id); initLecturer(id); }
+                    else if (o.status === "new_user") {
+                        const nama = prompt("Pendaftaran baharu. Masukkan nama anda:");
+                        if (!nama) { btn.disabled = false; btn.textContent = "MASUK SISTEM"; return; }
+                        await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "registerLecturer", email: id, nama, pass: pw }) });
+                        localStorage.setItem('le', id); initLecturer(id);
+                    } else alert(o.message);
+                }
+            } catch (e) { alert("Ralat API. Sila cuba lagi."); }
+            btn.disabled = false; btn.textContent = "MASUK SISTEM";
+        }
+
+        async function initStudent(d) {
+            myData = d;
+            document.getElementById('loginScreen').classList.add('hidden-section');
+            document.getElementById('studentDash').classList.remove('hidden-section');
+            document.getElementById('sNameDisplay').textContent = d.Nama_Pelajar || d.NAMA || "--";
+            document.getElementById('sKPDisplay').textContent = d.No_KP || d.NOKP || "--";
+
+            const kelas = d.Kelas || d.KELAS || d.Kumpulan || d.KUMPULAN || d.kelas || "";
+            myData.Kelas = kelas;
+            document.getElementById('sKelasDisplay').textContent = kelas || "Belum Pilih Kumpulan";
+
+            if (d.Status_Upload === "Selesai" || d.STATUS_UPLOAD === "Selesai") {
+                document.getElementById('sStatus').textContent = "✓ SELESAI";
+                document.getElementById('sStatus').className = "font-bold text-green-400 text-sm mt-0.5";
+            }
+
+            const linkGambar = d.Link_Gambar || d.URL_GAMBAR || d.link_gambar || "";
+            loadImage(document.getElementById('sImg'), document.getElementById('sPlIcon'), linkGambar);
+
+            const plist = document.getElementById('peerList');
+            if (!kelas || kelas.toString().trim() === "") {
+                plist.innerHTML = '<p class="text-xs text-center text-red-400 mt-8 font-bold px-2"><i class="fas fa-exclamation-triangle mr-1"></i>Profil Kumpulan Tidak Lengkap. Sila hubungi Pensyarah.</p>';
+                return;
+            }
+
+            plist.innerHTML = '<p class="text-xs text-center text-slate-500 mt-8">Memuatkan...</p>';
+            const r = await fetch(`${API}?action=getPeers&noKP=${d.No_KP || d.NOKP}&kelas=${encodeURIComponent(kelas)}`);
+            const o = await r.json();
+            if (o.status === "success") {
+                plist.innerHTML = o.data.length === 0
+                    ? '<p class="text-xs text-center text-slate-500 mt-8">Tiada rakan dalam kumpulan ini.</p>'
+                    : o.data.map(p => `
+                        <div class="flex justify-between items-center p-3 bg-black/20 rounded-xl border border-white/5">
+                            <p class="text-xs font-bold w-2/3 truncate">${p.Nama}</p>
+                            ${p.Selesai
+                                ? '<span class="text-[9px] text-green-400 font-bold whitespace-nowrap"><i class="fas fa-check mr-1"></i>Selesai</span>'
+                                : `<button onclick="openPeerModal('${p.No_KP}', '${p.Nama.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Nilai</button>`}
+                        </div>`).join('');
+            }
+        }
+
+        function openPeerModal(kp, nama) {
+            targetPeer = { kp, nama };
+            document.getElementById('peerNameDisplay').textContent = nama;
+            ['q1','q2','q3','q4'].forEach(id => { document.getElementById(id).value = 3; document.getElementById('v' + id.replace('q', '')).innerText = 3; });
+            document.getElementById('peerModal').classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal() {
+            document.getElementById('peerModal').classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        async function submitPeerEval() {
+            const btn = document.getElementById('peerSubBtn'); btn.disabled = true; btn.textContent = "MENGHANTAR...";
+            const p = {
+                action: "submitPeerEval", penilaiKP: myData.No_KP, dinilaiKP: targetPeer.kp,
+                dinilaiNama: targetPeer.nama, kelas: myData.Kelas,
+                q1: Number(document.getElementById('q1').value), q2: Number(document.getElementById('q2').value),
+                q3: Number(document.getElementById('q3').value), q4: Number(document.getElementById('q4').value)
+            };
+            await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) });
+            btn.disabled = false; btn.textContent = "HANTAR PENILAIAN";
+            alert("✅ Penilaian berjaya disimpan!"); closeModal(); initStudent(myData);
+        }
+
+        async function initLecturer(em) {
+            document.getElementById('loginScreen').classList.add('hidden-section');
+            document.getElementById('lecturerDash').classList.remove('hidden-section');
+            document.getElementById('lList').innerHTML = '<p class="text-xs text-slate-500 p-4">Memuatkan pelajar...</p>';
+            const r = await fetch(`${API}?action=getLecturerStudents&email=${encodeURIComponent(em)}`);
+            const o = await r.json(); lData = o.data;
+            // Lebarkan senarai pada desktop
+            document.getElementById('lListWrap').style.maxHeight = window.innerWidth >= 1024 ? '600px' : '280px';
+            document.getElementById('lList').innerHTML = lData.map((s, i) => `
+                <div onclick="selLecStudent(${i})" class="p-4 bg-white/5 rounded-2xl mb-2 cursor-pointer active:bg-white/15 border-l-4 ${s.markahSediaAda ? 'border-green-500' : 'border-transparent'}">
+                    <p class="font-bold text-xs truncate">${s.Nama_Pelajar}</p>
+                    <div class="flex justify-between items-center mt-1">
+                        <p class="text-[9px] text-slate-400">${s.No_KP}</p>
+                        ${s.peerEval ? '<span class="text-[8px] bg-indigo-500/30 px-2 py-0.5 rounded text-indigo-200">Radar ✅</span>' : ''}
+                    </div>
+                </div>`).join('');
+        }
+
+        function selLecStudent(index) {
+            curS = lData[index];
+            document.getElementById('gradingPanel').classList.remove('hidden');
+            document.getElementById('lName').textContent = curS.Nama_Pelajar;
+            document.getElementById('lKP').textContent = curS.No_KP;
+            // Scroll ke panel markah pada mobile
+            if (window.innerWidth < 1024) {
+                setTimeout(() => document.getElementById('gradingPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+            }
+            loadImage(document.getElementById('li'), document.getElementById('liPlaceholder'), curS.Link_Gambar);
+            drawRadar(curS.peerEval);
+            if (curS.markahSediaAda) {
+                document.getElementById('h1').value = curS.markahSediaAda.hp1; document.getElementById('h5').value = curS.markahSediaAda.hp5;
+                document.getElementById('h8').value = curS.markahSediaAda.hp8; document.getElementById('h10').value = curS.markahSediaAda.hp10;
+                document.getElementById('justTxt').value = curS.markahSediaAda.just === "-" ? "" : curS.markahSediaAda.just;
+            } else { ['h1','h5','h8','h10','justTxt'].forEach(i => document.getElementById(i).value = ''); }
+            calcTotal();
+        }
+
+        function drawRadar(peerData) {
+            if (radarInstance) radarInstance.destroy();
+            const canvas = document.getElementById('radarChart'), msg = document.getElementById('noPeerMsg');
+            if (!peerData) { msg.classList.remove('hidden'); canvas.style.display = 'none'; return; }
+            msg.classList.add('hidden'); canvas.style.display = '';
+            radarInstance = new Chart(canvas, {
+                type: 'radar',
+                data: {
+                    labels: ['Kepimpinan', 'Autonomi', 'Tanggungjawab', 'Kerjasama'],
+                    datasets: [{ label: `Purata (${peerData.jumlahPenilai} Rakan)`, data: [peerData.kepimpinan, peerData.autonomi, peerData.tanggungjawab, peerData.kerjasama], backgroundColor: 'rgba(99,102,241,0.4)', borderColor: '#818cf8', borderWidth: 2 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } }, scales: { r: { grid: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: '#cbd5e1', font: { size: 9 } }, ticks: { display: false }, min: 0, max: 5 } } }
+            });
+        }
+
+        function calcTotal() {
+            let h1 = Number(document.getElementById('h1').value), h5 = Number(document.getElementById('h5').value),
+                h8 = Number(document.getElementById('h8').value), h10 = Number(document.getElementById('h10').value);
+            if (h1 > 30) { document.getElementById('h1').value = 30; h1 = 30; } else if (h1 < 0) { document.getElementById('h1').value = 0; h1 = 0; }
+            if (h5 > 10) { document.getElementById('h5').value = 10; h5 = 10; } else if (h5 < 0) { document.getElementById('h5').value = 0; h5 = 0; }
+            if (h8 > 30) { document.getElementById('h8').value = 30; h8 = 30; } else if (h8 < 0) { document.getElementById('h8').value = 0; h8 = 0; }
+            if (h10 > 30) { document.getElementById('h10').value = 30; h10 = 30; } else if (h10 < 0) { document.getElementById('h10').value = 0; h10 = 0; }
+            const t = h1 + h5 + h8 + h10; document.getElementById('tm').textContent = t.toFixed(1);
+            let g = "F"; if (t >= 90) g = "A+"; else if (t >= 80) g = "A"; else if (t >= 75) g = "A-"; else if (t >= 70) g = "B+"; else if (t >= 65) g = "B"; else if (t >= 60) g = "B-"; else if (t >= 55) g = "C+"; else if (t >= 50) g = "C"; else if (t >= 40) g = "C-"; else if (t >= 30) g = "D+"; else if (t >= 20) g = "D";
+            document.getElementById('gd').textContent = g;
+            document.getElementById('justArea').classList.toggle('hidden', g !== "A+");
+            validateSave();
+        }
+
+        function validateSave() {
+            const g = document.getElementById('gd').textContent, j = document.getElementById('justTxt').value.trim();
+            document.getElementById('saveLecBtn').disabled = (g === "A+" && j === "");
+        }
+
+        async function saveMarks() {
+            const b = document.getElementById('saveLecBtn'); b.disabled = true; b.textContent = "MENYIMPAN...";
+            const p = { action: "submitScores", noKP: curS.No_KP, hp1: Number(document.getElementById('h1').value), hp5: Number(document.getElementById('h5').value), hp8: Number(document.getElementById('h8').value), hp10: Number(document.getElementById('h10').value), justifikasi: document.getElementById('justTxt').value, penilai: localStorage.getItem('le') };
+            await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) });
+            alert("✅ Markah berjaya disimpan!"); initLecturer(localStorage.getItem('le'));
+        }
+
+        function logout() { localStorage.clear(); location.reload(); }
+
+        function previewImage(input) {
+            if (input.files[0]) {
+                const r = new FileReader();
+                r.onload = e => {
+                    document.getElementById('sImg').src = e.target.result;
+                    document.getElementById('sImg').classList.remove('hidden');
+                    document.getElementById('sPlIcon').classList.add('hidden');
+                    // Tunjuk preview tambahan
+                    document.getElementById('imgPreview').src = e.target.result;
+                    document.getElementById('imgPreviewWrap').classList.remove('hidden');
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+
+        async function hUp() {
+            const f = document.getElementById('fIn');
+            if (!f.files[0]) return alert("Sila pilih fail gambar terlebih dahulu!");
+            const btn = document.getElementById('upBtn'); btn.disabled = true; btn.textContent = "MEMUAT NAIK...";
+            try {
+                const r = new FileReader();
+                r.onload = async (e) => {
+                    try {
+                        await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "uploadImage", noKP: myData.No_KP, imageData: e.target.result.split(',')[1], mimeType: f.files[0].type, fileName: "MPU_" + myData.No_KP + "_" + Date.now() }) });
+                        alert("✅ Gambar berjaya dimuat naik!");
+                        const res = await fetch(`${API}?action=checkLogin&noKP=${encodeURIComponent(myData.No_KP)}`);
+                        const data = await res.json();
+                        if (data.status === "success") { localStorage.setItem('userMPU', JSON.stringify(data.data)); initStudent(data.data); }
+                        else location.reload();
+                    } catch (err) { alert("Ralat semasa muat naik. Sila cuba lagi."); btn.disabled = false; btn.textContent = "UPLOAD"; }
+                };
+                r.readAsDataURL(f.files[0]);
+            } catch (err) { alert("Ralat: " + err.message); btn.disabled = false; btn.textContent = "UPLOAD"; }
+        }
+
+        // Resize handler untuk lecturer list height
+        window.addEventListener('resize', () => {
+            const wrap = document.getElementById('lListWrap');
+            if (wrap) wrap.style.maxHeight = window.innerWidth >= 1024 ? '600px' : '280px';
+        });
+
+        window.onload = () => {
+            const u = localStorage.getItem('userMPU'); if (u) initStudent(JSON.parse(u));
+            const le = localStorage.getItem('le'); if (le) initLecturer(le);
+        };
+    </script>
 </body>
 </html>
