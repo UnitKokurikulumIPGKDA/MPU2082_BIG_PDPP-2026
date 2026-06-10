@@ -446,6 +446,7 @@ async function loadInitialData() {
 
 function doLogout() {
   SESSION = null; PELAJAR_CACHE = []; MARKAH_CACHE = {}; UNSAVED_MARKAH = {};
+  window._GLOBAL_BIODATA_MAP = null;
   $('app').classList.add('hidden');
   $('screen-auth').classList.remove('hidden');
 }
@@ -500,10 +501,10 @@ function buildSidebarPelajar() {
       <div class="sb-user-role">${u.kelas} | ${u.agiliran}</div>
     </div>`);
 
+  // MENU PELAJAR (Markah telah dibuang)
   const navItems = [
     { id: 'bio',         label: 'Profil Akademik',  icon: icoUser() },
-    { id: 'peer-hantar', label: 'Penilaian Rakan',  icon: icoStar() },
-    { id: 'markah-saya', label: 'Penyata Markah',   icon: icoChart() },
+    { id: 'peer-hantar', label: 'Penilaian Rakan',  icon: icoStar() }
   ];
   html('sb-nav', navItems.map(n => `
     <div class="nav-item" id="nav-${n.id}" onclick="navigateTo('${n.id}')">
@@ -520,8 +521,7 @@ function navigateTo(screen) {
     dashboard: 'Ringkasan Eksekutif', pelajar: 'Daftar Pelajar',
     markah: 'Kemasukan Markah', laporan: 'Analisis Pencapaian',
     peer: 'Penilaian Sahsiah (Rakan Sebaya)',
-    bio: 'Profil Akademik', 'peer-hantar': 'Penilaian Rakan Sebaya',
-    'markah-saya': 'Penyata Markah Keseluruhan'
+    bio: 'Profil Akademik', 'peer-hantar': 'Penilaian Rakan Sebaya'
   };
   $('page-title').textContent = titles[screen] || screen;
 
@@ -529,8 +529,7 @@ function navigateTo(screen) {
     dashboard: renderDashboard, pelajar: renderPelajar,
     markah: renderMarkah, laporan: renderLaporan,
     peer: renderPeerView,
-    bio: renderBio, 'peer-hantar': renderPeerHantar,
-    'markah-saya': renderMarkahSaya
+    bio: renderBio, 'peer-hantar': renderPeerHantar
   };
   if (screens[screen]) screens[screen]();
 }
@@ -644,6 +643,8 @@ async function renderPelajar() {
   try {
     const bRes = await gasCall('getLaporan');
     (bRes.data || []).forEach(r => { biodataMap[r.nokp] = r; });
+    // Simpan biodata di global scope supaya modal terbuka pantas tanpa perlu tarik data baru
+    window._GLOBAL_BIODATA_MAP = biodataMap; 
   } catch(e) {}
 
   function renderRows() {
@@ -1222,80 +1223,6 @@ async function submitRating(targetNokp, targetAgiliran, kumpulan) {
 }
 
 // ================================================================
-// SCREEN: PELAJAR — MARKAH SAYA
-// ================================================================
-async function renderMarkahSaya() {
-  const u = SESSION.user;
-  showLoading('Mengekstrak penyata markah...');
-  let markah = null, ratings = [];
-  try {
-    const mRes = await gasCall('getMarkah', { nokp: u.nokp });
-    markah = mRes.data;
-    const rRes = await gasCall('getPeerRatings', { targetId: u.agiliran });
-    ratings = rRes.data || [];
-  } catch(e) {}
-  hideLoading();
-
-  const DIMS = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
-  const avgDims = DIMS.map(d => {
-    const vals = ratings.map(r => parseFloat(r[d])).filter(v => !isNaN(v));
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  });
-
-  const hm = markah;
-  const gred = hm ? hm.gred : '—';
-
-  html('content', `
-    <div class="grid-4" style="margin-bottom:24px">
-      <div class="stat-card"><div class="lbl">Kuiz (HPK1)</div><div class="val">${hm ? Number(hm.hpk1).toFixed(1) : '—'}</div><div class="sub">10% Wajaran</div></div>
-      <div class="stat-card"><div class="lbl">Amali I (HPK2)</div><div class="val">${hm ? Number(hm.hpk2).toFixed(1) : '—'}</div><div class="sub">60% Wajaran</div></div>
-      <div class="stat-card"><div class="lbl">Amali II (HPK3)</div><div class="val">${hm ? Number(hm.hpk3).toFixed(1) : '—'}</div><div class="sub">30% Wajaran</div></div>
-      <div class="stat-card" style="background:var(--brand-primary); color:white;">
-        <div class="lbl" style="color:rgba(255,255,255,0.7)">Gred Pencapaian</div>
-        <div class="val" style="color:white">${hm ? Number(hm.jumlah).toFixed(1) : '—'}</div>
-        <div class="sub" style="color:rgba(255,255,255,0.9)">Gred Indikator: <strong style="font-size:16px">${gred}</strong></div>
-      </div>
-    </div>
-    
-    <div class="grid-2">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:24px; border-bottom:1px solid var(--border-color); padding-bottom:16px;">Penyata Markah Rasmi</div>
-        ${hm ? `
-          ${[
-            ['HPK1 — Penilaian Kuiz (HP1)', hm.kuiz, hm.hpk1],
-            ['HPK2 — Amali I (HP4 × 30%)', hm.hp4, (hm.hp4||0)*0.30],
-            ['HPK2 — Amali I (HP5 × 30%)', hm.hp5, (hm.hp5||0)*0.30],
-            ['HPK3 — Amali II (HP3 × 15%)', hm.hp3, (hm.hp3||0)*0.15],
-            ['HPK3 — Amali II (HP8 × 15%)', hm.hp8, (hm.hp8||0)*0.15],
-          ].map(([label, raw, contrib]) => `
-          <div class="mark-row">
-            <div style="flex:1;font-size:14px;color:var(--fg-primary);font-weight:500;">${label}</div>
-            <div style="width:70px;text-align:right;font-size:13px;color:var(--fg-muted)">${raw ?? '—'} <span style="font-size:10px">/100</span></div>
-            <div style="width:60px;text-align:right;font-family:var(--font-heading);font-size:16px;font-weight:600;color:var(--brand-primary);">${Number(contrib).toFixed(2)}</div>
-          </div>`).join('')}
-          
-          <div class="mark-row" style="border-bottom:none; margin-top:16px; padding-top:20px; border-top:2px solid var(--fg-primary);">
-            <div style="flex:1;font-family:var(--font-heading);font-size:18px;font-weight:700;">Skor Kumulatif</div>
-            <div style="font-family:var(--font-heading);font-size:32px;font-weight:600;" class="${gredClass(gred)}">${Number(hm.jumlah).toFixed(1)}</div>
-          </div>` 
-          : `<div class="empty-state"><div class="ic">📋</div><p>Rekod belum dimuktamadkan oleh panel.</p></div>`}
-      </div>
-      
-      <div class="card">
-        <div class="card-title" style="margin-bottom:24px; border-bottom:1px solid var(--border-color); padding-bottom:16px;">Indeks Sahsiah</div>
-        ${ratings.length > 0
-          ? `<canvas id="sp-saya" height="260"></canvas>
-             <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--fg-muted);font-weight:500;">
-               Purata dirumus dari ${ratings.length} penilaian rakan sebaya
-             </div>`
-          : `<div class="empty-state"><div class="ic">⭐</div><p>Data belum direkodkan. Penilaian rakan diperlukan.</p></div>`}
-      </div>
-    </div>`);
-
-  if (ratings.length > 0) setTimeout(() => buildSpider('sp-saya', DIMS, avgDims), 100);
-}
-
-// ================================================================
 // SPIDER CHART (Editorial Restyle)
 // ================================================================
 function buildSpider(canvasId, labels, data) {
@@ -1333,8 +1260,15 @@ function buildSpider(canvasId, labels, data) {
 async function modalPelajar(nokp) {
   const p = PELAJAR_CACHE.find(x => x.nokp === nokp);
   if (!p) return;
+  
+  // Baca pantas terus dari memory, mengelakkan isu backend duplicate!
   let bio = {};
-  try { const r = await gasCall('getBiodata', { nokp }); bio = r.data || {}; } catch(e) {}
+  if (window._GLOBAL_BIODATA_MAP && window._GLOBAL_BIODATA_MAP[nokp]) {
+    bio = window._GLOBAL_BIODATA_MAP[nokp];
+  } else {
+    try { const r = await gasCall('getBiodata', { nokp }); bio = r.data || {}; } catch(e) {}
+  }
+  
   const m = MARKAH_CACHE[nokp];
   const gred = m && m.gred ? m.gred : '—';
 
