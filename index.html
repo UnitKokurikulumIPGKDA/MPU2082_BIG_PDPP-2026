@@ -45,10 +45,10 @@ body { font-family: var(--font-body); background: var(--bg-base); color: var(--f
 h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -0.01em; color: var(--fg-primary); }
 
 /* ── LOADING OVERLAY ── */
-#loading-overlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; transition: opacity 0.4s ease; }
+#loading-overlay { position: fixed; inset: 0; background: var(--bg-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; transition: opacity 0.4s ease; text-align: center; padding: 20px;}
 .spinner { width: 44px; height: 44px; border: 2px solid var(--border-color); border-top-color: var(--brand-primary); border-radius: 50%; animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { font-family: var(--font-heading); font-style: italic; font-size: 16px; color: var(--brand-primary); }
+.loading-text { font-family: var(--font-heading); font-style: italic; font-size: 16px; color: var(--brand-primary); max-width: 400px; }
 
 /* ── AUTH SCREEN (Editorial Split Layout) ── */
 #screen-auth { min-height: 100vh; display: flex; background: var(--bg-base); }
@@ -333,7 +333,8 @@ function notify(msg, type = 'info') {
 function showLoading(msg = 'Memuatkan...') {
   $('loading-overlay').style.opacity = '1';
   $('loading-overlay').style.display = 'flex';
-  $('loading-overlay').querySelector('.loading-text').textContent = msg;
+  const textEl = $('loading-overlay').querySelector('.loading-text');
+  if (textEl) textEl.textContent = msg;
 }
 function hideLoading() { 
   $('loading-overlay').style.opacity = '0';
@@ -1438,7 +1439,12 @@ window.addEventListener('load', () => {
     hideLoading();
     $('screen-auth').classList.remove('hidden');
   } else {
-    $('loading-overlay').querySelector('.loading-text').textContent = '⚠ Ralat Eksekusi Apps Script.';
+    // Paparan Ralat yang lebih jelas jika bukan di Google Apps Script
+    $('loading-overlay').querySelector('.spinner').style.display = 'none';
+    $('loading-overlay').querySelector('.loading-text').innerHTML = 
+      '<span style="font-size:42px; display:block; margin-bottom:12px;">⚠️</span>' +
+      '<strong style="color:var(--accent-danger); font-size:20px; display:block; margin-bottom:8px;">Ralat Eksekusi Apps Script</strong>' +
+      '<span style="font-size:14px; color:var(--fg-muted); font-weight:normal; font-family:var(--font-body); line-height:1.5; display:block;">Sistem ini tidak boleh diakses melalui GitHub Pages.<br>Sila buka menggunakan pautan rasmi Google Apps Script.</span>';
   }
 });
 
