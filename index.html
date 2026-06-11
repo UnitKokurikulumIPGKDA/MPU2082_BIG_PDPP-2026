@@ -1,501 +1,1965 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portal MPU3221 | Final Certified Hub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0f172a; min-height: 100vh; min-height: 100dvh; color: white; display: flex; align-items: flex-start; justify-content: center; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 2.5rem; }
-        /* Kurangkan border-radius pada mobile */
-        @media (max-width: 640px) { .glass { border-radius: 1.5rem; } }
-        .btn-prime { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); transition: 0.2s; cursor: pointer; }
-        .btn-prime:active { transform: scale(0.97); }
-        .btn-prime:disabled { opacity: 0.3; cursor: not-allowed; }
-        .hidden-section { display: none !important; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        /* Input number — buang spinner */
-        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-        input[type=number] { -moz-appearance: textfield; }
-        /* Saiz tap target minimum 44px */
-        button { min-height: 44px; }
-        input[type=range] { height: 44px; }
-        /* Fix body scroll bila modal buka */
-        body.modal-open { overflow: hidden; }
-        /* Lecturer panel — scroll independent */
-        #lList { -webkit-overflow-scrolling: touch; }
-        /* Pelajar list scroll */
-        #peerList { -webkit-overflow-scrolling: touch; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistem Pemarkahan IPG — MPU2082</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #185FA5;
+    --primary-light: #E6F1FB;
+    --primary-mid: #378ADD;
+    --success: #3B6D11;
+    --success-light: #EAF3DE;
+    --warning: #854F0B;
+    --warning-light: #FAEEDA;
+    --danger: #A32D2D;
+    --danger-light: #FCEBEB;
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --gray-100: #F1EFE8;
+    --gray-200: #D3D1C7;
+    --gray-400: #888780;
+    --gray-600: #5F5E5A;
+    --gray-800: #444441;
+    --text-primary: #1a1a1a;
+    --text-secondary: #5F5E5A;
+    --bg: #f7f6f3;
+    --bg-card: #ffffff;
+    --border: #e0ded8;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  #app { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 230px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    z-index: 100;
+  }
+
+  .sidebar-brand {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-brand h1 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+    line-height: 1.3;
+  }
+
+  .sidebar-brand p {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .sidebar-user {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* FIX 3: Avatar bulat - object-fit cover + object-position center */
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+    background-clip: padding-box;
+  }
+
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    border-radius: 50%;
+  }
+
+  .avatar-lg {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 600;
+    overflow: hidden;
+    margin: 0 auto 12px;
+    border: 3px solid var(--border);
+  }
+
+  .avatar-lg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    border-radius: 50%;
+  }
+
+  .sidebar-user-info .name { font-size: 12px; font-weight: 600; }
+  .sidebar-user-info .role { font-size: 11px; color: var(--text-secondary); }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 8px 8px;
+    overflow-y: auto;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: background 0.15s, color 0.15s;
+    margin-bottom: 1px;
+  }
+
+  .nav-item:hover { background: var(--gray-100); color: var(--text-primary); }
+  .nav-item.active { background: var(--primary-light); color: var(--primary); font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-logout {
+    width: 100%;
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s;
+  }
+
+  .btn-logout:hover { background: var(--danger-light); color: var(--danger); border-color: #f0c0c0; }
+
+  .main {
+    margin-left: 230px;
+    flex: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .topbar h2 { font-size: 16px; font-weight: 600; }
+
+  .content { padding: 24px; flex: 1; }
+
+  #screen-auth {
+    min-height: 100vh;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .auth-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .auth-logo {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .auth-logo .logo-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+
+  .auth-logo h1 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+  .auth-logo p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 5px; }
+
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--primary-mid);
+    box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.12);
+  }
+
+  .btn {
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    text-decoration: none;
+    color: var(--text-primary);
+    background: var(--bg-card);
+  }
+
+  .btn:hover { background: var(--gray-100); }
+  .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+  .btn-primary:hover { background: #0d4a8a; border-color: #0d4a8a; color: white; }
+  .btn-block { width: 100%; justify-content: center; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-xs { padding: 3px 8px; font-size: 11px; }
+  .btn-success { background: var(--success); color: white; border-color: var(--success); }
+  .btn-success:hover { background: #2a5209; color: white; }
+
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .auth-tab {
+    flex: 1; padding: 8px; text-align: center; font-size: 13px;
+    font-weight: 500; cursor: pointer; background: transparent;
+    border: none; color: var(--text-secondary); transition: all 0.15s;
+  }
+  .auth-tab.active { background: var(--primary); color: white; }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .card-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .stat-card .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-card .value { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .stat-card .sub { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--gray-100);
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--bg); }
+  tbody td { padding: 9px 12px; vertical-align: middle; }
+  tbody tr:last-child { border-bottom: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .badge-blue { background: var(--primary-light); color: var(--primary); }
+  .badge-green { background: var(--success-light); color: var(--success); }
+  .badge-amber { background: var(--warning-light); color: var(--warning); }
+  .badge-red { background: var(--danger-light); color: var(--danger); }
+  .badge-purple { background: var(--purple-light); color: var(--purple); }
+  .badge-teal { background: var(--teal-light); color: var(--teal); }
+  .badge-gray { background: var(--gray-100); color: var(--gray-600); }
+
+  .mark-input {
+    width: 70px;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .mark-input:focus { border-color: var(--primary-mid); box-shadow: 0 0 0 2px rgba(55,138,221,0.12); }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--gray-200);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.3s;
+  }
+
+  .alert {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .alert-danger { background: var(--danger-light); color: var(--danger); border: 1px solid #f0c0c0; }
+  .alert-success { background: var(--success-light); color: var(--success); border: 1px solid #c0de97; }
+  .alert-info { background: var(--primary-light); color: var(--primary); border: 1px solid #b5d4f4; }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    width: 100%;
+    max-width: 540px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+  }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .modal-header h3 { font-size: 15px; font-weight: 600; }
+  .modal-close {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--text-secondary);
+    transition: background 0.15s;
+  }
+  .modal-close:hover { background: var(--gray-100); }
+
+  .star-group { display: flex; gap: 4px; }
+  .star {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .star.selected { background: var(--warning-light); color: var(--warning); border-color: #FAC775; }
+  .star:hover { background: var(--warning-light); color: var(--warning); }
+
+  .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .tab {
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
+  }
+  .tab:hover { color: var(--text-primary); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  .hidden { display: none !important; }
+  .text-muted { color: var(--text-secondary); }
+  .text-sm { font-size: 12px; }
+  .fw-500 { font-weight: 500; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .text-center { text-align: center; }
+  .p-0 { padding: 0; }
+
+  /* FIX 3: Photo upload dengan crop position */
+  .photo-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    margin-bottom: 14px;
+  }
+  .photo-upload-area:hover { border-color: var(--primary-mid); background: var(--primary-light); }
+
+  /* FIX 3: preview gambar dalam upload area */
+  .preview-circle-wrap {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin: 0 auto 8px;
+    border: 3px solid var(--border);
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .preview-circle-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+  }
+
+  .gred-A { color: var(--success); font-weight: 600; }
+  .gred-B { color: var(--primary); font-weight: 600; }
+  .gred-C { color: var(--warning); font-weight: 600; }
+  .gred-D { color: #884400; font-weight: 600; }
+  .gred-F { color: var(--danger); font-weight: 600; }
+
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .info-row {
+    display: flex;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { width: 160px; flex-shrink: 0; color: var(--text-secondary); font-weight: 500; }
+  .info-value { flex: 1; color: var(--text-primary); }
+
+  .mark-summary-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .mark-summary-row:last-child { border-bottom: none; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--text-secondary);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; opacity: 0.4; }
+  .empty-state p { font-size: 13px; }
+
+  .notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--text-primary);
+    color: white;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    z-index: 9999;
+    animation: slideUp 0.3s ease;
+    max-width: 320px;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* FIX 1: Upload progress */
+  .upload-progress {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--primary);
+    margin-top: 6px;
+  }
+  .upload-spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--primary-light);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
-<body class="p-3 sm:p-4">
+<body>
 
-    <!-- ===== LOGIN ===== -->
-    <div id="loginScreen" class="glass w-full max-w-md p-6 sm:p-10 shadow-2xl mt-8 sm:mt-0 sm:self-center">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-center mb-8 sm:mb-10 text-indigo-400">PORTAL MPU3221</h1>
-        <div class="flex gap-2 mb-6 sm:mb-8 p-1 bg-white/5 rounded-2xl text-[11px] font-bold">
-            <button onclick="switchRole('S')" id="ts" class="flex-1 py-3 rounded-xl bg-indigo-600">PELAJAR</button>
-            <button onclick="switchRole('L')" id="tl" class="flex-1 py-3 rounded-xl text-slate-400">PENSYARAH</button>
-        </div>
-        <div class="space-y-3">
-            <input type="text" id="userId" inputmode="numeric" placeholder="No. Kad Pengenalan"
-                class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none focus:border-indigo-500 font-mono text-center text-base">
-            <input type="password" id="userPass" placeholder="Password (Pensyarah)"
-                class="w-full bg-white/5 border border-white/10 p-4 rounded-2xl outline-none hidden text-center text-base">
-        </div>
-        <button onclick="handleAuth()" id="authBtn" class="btn-prime w-full p-4 rounded-2xl font-bold uppercase mt-6 sm:mt-8 text-sm shadow-xl">MASUK SISTEM</button>
+<!-- AUTH SCREEN -->
+<div id="screen-auth">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.8">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <h1>Sistem Pemarkahan IPG</h1>
+      <p>MPU2082 — Tahun Akademik 2024/2025</p>
     </div>
 
-    <!-- ===== STUDENT DASHBOARD ===== -->
-    <div id="studentDash" class="hidden-section glass w-full max-w-5xl p-4 sm:p-8 shadow-2xl">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-5 sm:mb-8 border-b border-white/5 pb-4 sm:pb-5 font-bold italic">
-            <h2 class="text-indigo-400 uppercase tracking-widest text-xs sm:text-sm">Student_Dashboard</h2>
-            <button onclick="logout()" class="px-4 py-2 border border-white/10 rounded-full text-[10px] font-black uppercase text-red-400">LOGOUT</button>
-        </div>
-
-        <!-- Grid: mobile = 1 col, lg = 3 col -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-
-            <!-- Kiri: Profil + Upload -->
-            <div class="lg:col-span-2 space-y-4 sm:space-y-8">
-
-                <!-- Profil Card -->
-                <div class="bg-white/5 p-5 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] flex items-center gap-4 sm:gap-6">
-                    <div class="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-black/40 overflow-hidden border border-white/20 flex-shrink-0 flex items-center justify-center">
-                        <img id="sImg" class="w-full h-full object-cover hidden">
-                        <i id="sPlIcon" class="fas fa-user text-white/20 text-2xl sm:text-3xl"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <h2 id="sNameDisplay" class="text-base sm:text-2xl font-bold uppercase leading-tight truncate">--</h2>
-                        <p id="sKPDisplay" class="text-xs sm:text-sm font-mono text-indigo-300 mt-0.5">--</p>
-                        <p id="sKelasDisplay" class="text-xs sm:text-sm font-bold text-slate-400 mt-0.5">--</p>
-                    </div>
-                </div>
-
-                <!-- Upload Card -->
-                <div class="bg-indigo-900/20 border border-indigo-500/30 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl">
-                    <div class="flex justify-between items-center flex-wrap gap-3">
-                        <div>
-                            <p class="text-[10px] uppercase font-bold opacity-50">Bukti Gambar Aktiviti</p>
-                            <p id="sStatus" class="font-bold text-orange-400 text-sm mt-0.5">PENDING</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="document.getElementById('fIn').click()" class="bg-white/10 px-4 py-2 rounded-xl text-xs font-bold">
-                                <i class="fas fa-image mr-1"></i>PILIH
-                            </button>
-                            <button onclick="hUp()" id="upBtn" class="btn-prime px-4 py-2 rounded-xl text-xs font-bold">
-                                <i class="fas fa-upload mr-1"></i>UPLOAD
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Preview gambar yang dipilih -->
-                    <div id="imgPreviewWrap" class="hidden mt-3 rounded-xl overflow-hidden border border-white/10">
-                        <img id="imgPreview" class="w-full max-h-40 object-cover">
-                    </div>
-                    <input type="file" id="fIn" hidden accept="image/*" onchange="previewImage(this)">
-                </div>
-            </div>
-
-            <!-- Kanan: Senarai Rakan -->
-            <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] flex flex-col" style="min-height:260px; max-height: 420px;">
-                <h3 class="text-xs sm:text-sm font-bold text-indigo-400 mb-3 border-b border-white/10 pb-2">
-                    <i class="fas fa-users mr-2"></i>Penilaian Rakan Kumpulan
-                </h3>
-                <div id="peerList" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1">
-                    <p class="text-xs text-center text-slate-500 mt-8">Memuatkan rakan sekelas...</p>
-                </div>
-            </div>
-        </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('pensyarah')">Pensyarah</button>
+      <button class="auth-tab" onclick="switchAuthTab('pelajar')">Pelajar</button>
     </div>
 
-    <!-- ===== PEER MODAL ===== -->
-    <div id="peerModal" class="hidden fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-        <!-- Mobile: slide up dari bawah. Desktop: tengah -->
-        <div class="glass w-full sm:max-w-lg p-6 sm:p-8 relative rounded-t-[2rem] sm:rounded-[2rem] max-h-[92dvh] overflow-y-auto custom-scroll">
-            <!-- Handle bar untuk mobile -->
-            <div class="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 sm:hidden"></div>
-            <button onclick="closeModal()" class="absolute top-5 right-5 text-slate-400 w-8 h-8 flex items-center justify-center">
-                <i class="fas fa-times text-lg"></i>
-            </button>
-            <h3 class="text-base font-bold text-indigo-400 mb-1">Penilaian Ahli Kumpulan</h3>
-            <p id="peerNameDisplay" class="font-bold text-lg mb-5 border-b border-white/10 pb-4 pr-8">Nama Rakan</p>
-            <div class="space-y-5 text-sm mb-6">
-                <div>
-                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">1. Kepimpinan <span class="opacity-60">(Memimpin & arahan jelas)</span></p>
-                    <input type="range" id="q1" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v1').innerText=this.value">
-                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
-                        <span>1 Lemah</span><span id="v1" class="font-bold text-indigo-400 text-sm">3</span><span>5 Baik</span>
-                    </div>
-                </div>
-                <div>
-                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">2. Autonomi <span class="opacity-60">(Keputusan berdikari)</span></p>
-                    <input type="range" id="q2" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v2').innerText=this.value">
-                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
-                        <span>1</span><span id="v2" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
-                    </div>
-                </div>
-                <div>
-                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">3. Tanggungjawab <span class="opacity-60">(Dedikasi)</span></p>
-                    <input type="range" id="q3" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v3').innerText=this.value">
-                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
-                        <span>1</span><span id="v3" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
-                    </div>
-                </div>
-                <div>
-                    <p class="mb-2 text-slate-300 text-xs sm:text-sm">4. Kerjasama <span class="opacity-60">(Menjayakan aktiviti)</span></p>
-                    <input type="range" id="q4" min="1" max="5" value="3" class="w-full accent-indigo-500" oninput="document.getElementById('v4').innerText=this.value">
-                    <div class="flex justify-between text-[10px] text-slate-500 px-1 mt-1">
-                        <span>1</span><span id="v4" class="font-bold text-indigo-400 text-sm">3</span><span>5</span>
-                    </div>
-                </div>
-            </div>
-            <button onclick="submitPeerEval()" id="peerSubBtn" class="btn-prime w-full py-4 rounded-xl font-bold tracking-widest text-sm">HANTAR PENILAIAN</button>
-        </div>
+    <div id="auth-pensyarah-form">
+      <div class="form-group">
+        <label>E-mel</label>
+        <input type="email" id="auth-email" placeholder="email@ipgm.edu.my" value="hanifffaizal@gmail.com"/>
+      </div>
+      <div class="form-group">
+        <label>Kata Laluan</label>
+        <input type="password" id="auth-password" placeholder="Kata laluan" value="790704025409"/>
+      </div>
     </div>
 
-    <!-- ===== LECTURER DASHBOARD ===== -->
-    <div id="lecturerDash" class="hidden-section glass w-full max-w-7xl p-4 sm:p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-5 sm:mb-8 border-b border-white/5 pb-4 sm:pb-5 font-bold text-indigo-400 italic">
-            <h2 class="text-xs sm:text-sm">LECTURER_PORTAL</h2>
-            <button onclick="logout()" class="px-4 py-2 border border-white/10 rounded-full text-[10px] text-red-400">LOGOUT</button>
-        </div>
-
-        <!-- Layout: mobile = stack, lg = side by side -->
-        <div class="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6 text-sm">
-
-            <!-- Senarai pelajar — mobile: fixed height scroll, desktop: tall scroll -->
-            <div class="lg:col-span-3 overflow-y-auto custom-scroll pr-1 rounded-2xl" style="max-height: 300px;" id="lListWrap">
-                <div id="lList"></div>
-            </div>
-
-            <!-- Panel Markah -->
-            <div id="gradingPanel" class="lg:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 hidden">
-
-                <!-- Kiri: Info pelajar + Radar -->
-                <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl space-y-4 sm:space-y-6">
-                    <div class="flex items-center gap-3 sm:gap-4">
-                        <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-indigo-500 bg-white/5 flex-shrink-0 flex items-center justify-center">
-                            <img id="li" class="w-full h-full object-cover hidden">
-                            <i id="liPlaceholder" class="fas fa-user text-white/20 text-xl sm:text-2xl"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <h3 id="lName" class="font-bold text-base sm:text-lg uppercase leading-tight truncate">--</h3>
-                            <p id="lKP" class="text-[10px] font-mono text-slate-400">--</p>
-                        </div>
-                    </div>
-                    <div class="bg-black/20 rounded-2xl p-3 sm:p-4 relative flex flex-col items-center" style="height:220px;">
-                        <p class="text-[10px] text-center text-slate-400 font-bold mb-2">Penilaian Rakan Sebaya (Kumpulan)</p>
-                        <canvas id="radarChart" class="flex-1"></canvas>
-                        <p id="noPeerMsg" class="absolute inset-0 flex items-center justify-center text-xs text-red-400 bg-black/60 rounded-2xl hidden backdrop-blur-sm z-10 font-bold">Belum ada penilaian rakan.</p>
-                    </div>
-                </div>
-
-                <!-- Kanan: Input markah -->
-                <div class="bg-white/5 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-3xl flex flex-col">
-                    <div class="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-                        <div class="bg-black/20 p-4 rounded-2xl">
-                            <p class="text-[10px] font-bold text-indigo-400 uppercase mb-3">Tugasan 1: Penulisan (40%)</p>
-                            <div class="flex gap-3 sm:gap-4">
-                                <div class="flex-1">
-                                    <label class="text-[9px] opacity-50 block mb-1">HP1 (Max 30)</label>
-                                    <input type="number" id="h1" inputmode="decimal" oninput="calcTotal()"
-                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
-                                </div>
-                                <div class="flex-1">
-                                    <label class="text-[9px] opacity-50 block mb-1">HP5 (Max 10)</label>
-                                    <input type="number" id="h5" inputmode="decimal" oninput="calcTotal()"
-                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-black/20 p-4 rounded-2xl border border-indigo-500/30">
-                            <p class="text-[10px] font-bold text-indigo-400 uppercase mb-3">Tugasan 2: Penganjuran (60%)</p>
-                            <div class="flex gap-3 sm:gap-4">
-                                <div class="flex-1">
-                                    <label class="text-[9px] opacity-50 text-indigo-300 block mb-1">HP8 (Max 30)</label>
-                                    <input type="number" id="h8" inputmode="decimal" oninput="calcTotal()"
-                                        class="w-full bg-indigo-500/20 p-3 rounded-lg outline-none text-center text-base font-bold">
-                                </div>
-                                <div class="flex-1">
-                                    <label class="text-[9px] opacity-50 block mb-1">HP10 (Max 30)</label>
-                                    <input type="number" id="h10" inputmode="decimal" oninput="calcTotal()"
-                                        class="w-full bg-white/10 p-3 rounded-lg outline-none text-center text-base font-bold">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex justify-between items-end mb-4 px-1">
-                        <div><p class="text-xs opacity-50 uppercase">Markah Akhir</p><p id="tm" class="text-4xl font-black text-white">0.0</p></div>
-                        <div class="text-right"><p class="text-xs opacity-50 uppercase">Gred</p><p id="gd" class="text-4xl font-black text-indigo-400">F</p></div>
-                    </div>
-                    <div id="justArea" class="hidden mb-4">
-                        <textarea id="justTxt" oninput="validateSave()" rows="3"
-                            class="w-full bg-red-500/10 border border-red-500/30 p-3 rounded-xl text-xs outline-none focus:border-red-500 resize-none"
-                            placeholder="A+ memerlukan justifikasi mandatori..."></textarea>
-                    </div>
-                    <button onclick="saveMarks()" id="saveLecBtn" class="mt-auto btn-prime w-full py-4 rounded-2xl font-bold tracking-widest shadow-xl text-sm">SIMPAN MARKAH</button>
-                </div>
-            </div>
-        </div>
+    <div id="auth-pelajar-form" class="hidden">
+      <div class="form-group">
+        <label>Nombor Kad Pengenalan</label>
+        <input type="text" id="auth-nokp" placeholder="cth: 030924080985"/>
+      </div>
     </div>
 
-    <script>
-        const API = "https://script.google.com/macros/s/AKfycbxufZgAB9OWBbVzGzBascudDu498uJB80q9PtWDAFWLzDCZD5MxYqGKvIRyC38JgkId1Q/exec";
-        let role = 'S', myData = null, lData = [], curS = null, radarInstance = null, targetPeer = null;
+    <div id="auth-error" class="alert alert-danger hidden">
+      <span>⚠</span><span id="auth-error-msg">Maklumat tidak sah</span>
+    </div>
 
-        // Fix URL Google Drive
-        function fixDriveUrl(url) {
-            if (!url || url === "") return "";
-            let fileId = "";
-            const matchD = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (matchD) fileId = matchD[1];
-            if (!fileId) { const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/); if (matchId) fileId = matchId[1]; }
-            return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
-        }
+    <button class="btn btn-primary btn-block" onclick="doLogin()" style="margin-top:6px">
+      Log Masuk
+    </button>
+  </div>
+</div>
 
-        function loadImage(imgEl, placeholderEl, url) {
-            if (!url || url === "") { imgEl.classList.add('hidden'); placeholderEl.classList.remove('hidden'); return; }
-            imgEl.onload = () => { imgEl.classList.remove('hidden'); placeholderEl.classList.add('hidden'); };
-            imgEl.onerror = () => { imgEl.classList.add('hidden'); placeholderEl.classList.remove('hidden'); };
-            imgEl.src = fixDriveUrl(url);
-        }
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>Sistem Pemarkahan IPG</h1>
+      <p>MPU2082 | 2024/2025</p>
+    </div>
+    <div class="sidebar-user" id="sidebar-user-info"></div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="doLogout()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Log Keluar
+      </button>
+    </div>
+  </aside>
 
-        function switchRole(r) {
-            role = r;
-            document.getElementById('ts').className = r === 'S' ? 'flex-1 py-3 rounded-xl bg-indigo-600' : 'flex-1 py-3 rounded-xl text-slate-400';
-            document.getElementById('tl').className = r === 'L' ? 'flex-1 py-3 rounded-xl bg-indigo-600' : 'flex-1 py-3 rounded-xl text-slate-400';
-            document.getElementById('userPass').classList.toggle('hidden', r === 'S');
-            const uid = document.getElementById('userId');
-            uid.placeholder = r === 'S' ? 'No. Kad Pengenalan' : 'Emel Pensyarah';
-            uid.inputMode = r === 'S' ? 'numeric' : 'email';
-        }
+  <main class="main">
+    <div class="topbar">
+      <h2 id="page-title">Papan Pemuka</h2>
+      <div class="topbar-right" id="topbar-right"></div>
+    </div>
+    <div class="content" id="main-content"></div>
+  </main>
+</div>
 
-        async function handleAuth() {
-            const id = document.getElementById('userId').value.trim();
-            const pw = document.getElementById('userPass').value.trim();
-            if (!id) return alert("Sila isikan ruangan input.");
-            const btn = document.getElementById('authBtn'); btn.disabled = true; btn.textContent = "VERIFYING...";
-            try {
-                if (role === 'S') {
-                    const r = await fetch(`${API}?action=checkLogin&noKP=${encodeURIComponent(id)}`);
-                    const o = await r.json();
-                    if (o.status === "success") { localStorage.setItem('userMPU', JSON.stringify(o.data)); initStudent(o.data); }
-                    else alert(o.message);
-                } else {
-                    const r = await fetch(`${API}?action=lecturerLogin&email=${encodeURIComponent(id)}&pass=${encodeURIComponent(pw)}`);
-                    const o = await r.json();
-                    if (o.status === "success") { localStorage.setItem('le', id); initLecturer(id); }
-                    else if (o.status === "new_user") {
-                        const nama = prompt("Pendaftaran baharu. Masukkan nama anda:");
-                        if (!nama) { btn.disabled = false; btn.textContent = "MASUK SISTEM"; return; }
-                        await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "registerLecturer", email: id, nama, pass: pw }) });
-                        localStorage.setItem('le', id); initLecturer(id);
-                    } else alert(o.message);
-                }
-            } catch (e) { alert("Ralat API. Sila cuba lagi."); }
-            btn.disabled = false; btn.textContent = "MASUK SISTEM";
-        }
+<div id="modal-container"></div>
+<div id="notification-bar" style="display:none" class="notification"></div>
 
-        async function initStudent(d) {
-            myData = d;
-            document.getElementById('loginScreen').classList.add('hidden-section');
-            document.getElementById('studentDash').classList.remove('hidden-section');
-            document.getElementById('sNameDisplay').textContent = d.Nama_Pelajar || d.NAMA || "--";
-            document.getElementById('sKPDisplay').textContent = d.No_KP || d.NOKP || "--";
+<script>
+// ================================================================
+// GOOGLE DRIVE FOLDER untuk upload gambar
+// ================================================================
+const DRIVE_FOLDER_ID = '1Zroy1IAumIRzAS2Sfuz5Bh-B8VmtFzz5';
 
-            const kelas = d.Kelas || d.KELAS || d.Kumpulan || d.KUMPULAN || d.kelas || "";
-            myData.Kelas = kelas;
-            document.getElementById('sKelasDisplay').textContent = kelas || "Belum Pilih Kumpulan";
+// ================================================================
+// DATA STORE
+// ================================================================
+const PENSYARAH_DATA = [
+  {email:"hanifffaizal@gmail.com", password:"790704025409", nama:"HANIFF FAIZAL", role:"pensyarah"},
+  {email:"amirah@ipgm.edu.my", password:"890510085516", nama:"AMIRAH BINTI SALIM", role:"pensyarah"},
+  {email:"mohdazman@ipgm.edu.my", password:"c12345", nama:"AZMAN BIN BASIRUN", role:"pensyarah"},
+  {email:"yusainy@ipgm.edu.my", password:"791102145811", nama:"YUSAINI BIN AZIZAN", role:"pensyarah"},
+  {email:"haniff.faizal@ipgm.edu.my", password:"30521", nama:"ADMIN", role:"admin"},
+  {email:"azizi.ismail@ipgm.edu.my", password:"730425025567", nama:"AZIZI BIN ISMAIL", role:"pensyarah"},
+  {email:"abdulsatar@ipgm.edu.my", password:"700720025503", nama:"ABDUL SATAR BIN HAMZAH", role:"pensyarah"},
+  {email:"musaidi.mustaffa@ipgm.edu.my", password:"700628115303", nama:"MUSAIDI BIN MUSTAFA", role:"pensyarah"},
+  {email:"yusri.yusoff@ipgm.edu.my", password:"670718025411", nama:"YUSRI BIN YUSOFF", role:"pensyarah"},
+  {email:"kholid@ipgm.edu.my", password:"690805025485", nama:"KHOLID BIN SALLEH", role:"pensyarah"},
+  {email:"jurulatih@ipgm.edu.my", password:"87654321", nama:"JURULATIH", role:"pensyarah"},
+];
 
-            if (d.Status_Upload === "Selesai" || d.STATUS_UPLOAD === "Selesai") {
-                document.getElementById('sStatus').textContent = "✓ SELESAI";
-                document.getElementById('sStatus').className = "font-bold text-green-400 text-sm mt-0.5";
-            }
+const RAW_PELAJAR = `MPU2082_001,ABDURAHIM FAIZ BIN MAKHTARUDIN,010114030523,2025182390001,PBKK,L
+MPU2082_002,MOHAMMAD AMMAR BIN MOHD RADZI,970329095103,20251823900010,PBKK,L
+MPU2082_003,AHMAD HILMI BIN KAMARULARIPIN,990918105427,2025182390002,PBKK,L
+MPU2082_004,AIMAN FARHAN BIN ABDUL HALIM,020216020579,2025182390003,PBKK,L
+MPU2082_005,BOGASRI A/P GHANASEKARAN,960819075608,2025182390004,PBKK,P
+MPU2082_006,HASSAN BIN NURDIN,861011495729,2025182390005,PBKK,L
+MPU2082_007,HUMAIRAH BINTI ABDUL RAHMAN,950913147410,2025182390006,PBKK,P
+MPU2082_008,MOHAMAD ASROL BIN SUBEKI,011122030819,2025182390007,PBKK,L
+MPU2082_009,MOHAMAD SAHADAN BIN ABDUL AZIZ,940114086763,2025182390008,PBKK,L
+MPU2082_010,MOHAMAD ZULAMIDI BIN MOHAMED RASID,981016065935,2025182390009,PBKK,L
+MPU2082_011,MUHAMMAD AMIRUL SYAMSURI BIN ZAHID,010915070269,2025182390011,PBKK,L
+MPU2082_012,MUHAMMAD FARIS BIN MOHD ROSDI,980704035903,2025182390012,PBKK,L
+MPU2082_013,MUHAMMAD KHAIRUL AMIN BIN ALIAS,971004385027,2025182390013,PBKK,L
+MPU2082_014,MUHAMMAD LUTFI AMIR BIN ABU BAKAR,990502025597,2025182390014,PBKK,L
+MPU2082_015,MUHAMMAD LUTFI BIN AB.LATIF,010409020015,2025182390015,PBKK,L
+MPU2082_016,MUHAMMAD NA'IM BIN AB RAZAK,941025085421,2025182390016,PBKK,L
+MPU2082_017,MUHAMMAD SYAHRIL BIN SAIDI,990714037549,2025182390017,PBKK,L
+MPU2082_018,MUHAMMAD SYAUQI BIN A'DRUS,980703106319,2025182390018,PBKK,L
+MPU2082_019,NOR AISYAH BINTI MD NOR,000304110832,2025182390019,PBKK,P
+MPU2082_020,NUR FARHANAH BINTI MOHAMAD,000207110080,2025182390020,PBKK,P
+MPU2082_021,NUR FATIHAH BINTI ADAM,001226080678,2025182390021,PBKK,P
+MPU2082_022,NURUL HASANAH BINTI CHE MAD SAH,000223060116,2025182390022,PBKK,P
+MPU2082_023,RIZALMAN BIN ROZI,990708035459,2025182390023,PBKK,L
+MPU2082_024,SALWA HASANAH BINTI MOHAMAD ANUAR,930624086262,2025182390024,PBKK,P
+MPU2082_025,SARAH NEESA BINTI NASARUDIN,991123055416,2025182390025,PBKK,P
+MPU2082_026,SHAFIKAH ZAKIAH BINTI MUHAMAD,970706016176,2025182390026,PBKK,P
+MPU2082_027,SITI KHALIMAHTUS SAADIAH BINTI MOHD TAYIB,970706385094,2025182390027,PBKK,P
+MPU2082_028,SITI ZAHIRAH HUSNA BINTI AHMAD,000414021312,2025182390028,PBKK,P
+MPU2082_029,SYIFAA BINTI MOHAMMAD NAHAR,000223021168,2025182390029,PBKK,P
+MPU2082_030,TARISHINI A/P GANAMOORTHI,011028100622,2025182390030,PBKK,P
+MPU2082_031,UMI FARHANA BINTI MOHD NOH,000824031038,2025182390031,PBKK,P
+MPU2082_032,ABDUL HADI BIN MOHD DARUS,030924080985,2025182410001,PIMK,L
+MPU2082_033,AFAF NAJIYAH BT KHALIF MUAMMAR,031006011520,2025182410002,PIMK,P
+MPU2082_034,AFIF BIN ISHAK,031116020815,2025182410003,PIMK,L
+MPU2082_035,AHMAD ANIS BIN AB QAIS,030105020305,2025182410004,PIMK,L
+MPU2082_036,ANIS AUNI SYAFIQAH BINTI MOHD TAUFIK,030226100352,2025182410005,PIMK,P
+MPU2082_037,HASNUL FIKRI BIN AHMAD SUKRI,030401140483,2025182410006,PIMK,L
+MPU2082_038,JULIA BINTI MOHD JASNI,030921100194,2025182410007,PIMK,P
+MPU2082_039,LUTFIAH HANNANI BINTI HASAN,030210021270,2025182410008,PIMK,P
+MPU2082_040,MUHAMMAD ASRAF OMAR BIN ABDUL RAHIM,030826101543,2025182410009,PIMK,L
+MPU2082_041,MUHAMMAD AZLAN BIN ANWAR,030223120147,2025182410010,PIMK,L
+MPU2082_042,MUHAMMAD FAKHRUL NIZAM BIN WAHAB,030306030577,2025182410011,PIMK,L
+MPU2082_043,MUHAMMAD IDHAM BIN AZMAN SHAH,031007101077,2025182410012,PIMK,L
+MPU2082_044,MUHAMMAD IZZUDDIN BIN MOHD NASIR,030908050233,2025182410013,PIMK,L
+MPU2082_045,MUHAMMAD SYAHMI BIN MHD ZAINI,030203100333,2025182410014,PIMK,L
+MPU2082_046,NUR AINUL MARDHIYYAH BINTI MOHAMAD HAKKI,030222050028,2025182410015,PIMK,P
+MPU2082_047,NUR SYAZWANI BINTI MOHD NOOR,020122010230,2025182410016,PIMK,P
+MPU2082_048,NURUL AIN BINTI MUSTAFA KAMAL,031022030676,2025182410017,PIMK,P
+MPU2082_049,RAHMATULRIHAM BINTI RAMLI,031201020238,2025182410018,PIMK,P
+MPU2082_050,WAN NOR SYAZA BINTI WAN MOHD SUFIYAN,031013110332,2025182410019,PIMK,P
+MPU2082_051,WAN NURUL AMANI BINTI WAN FAJRULHISYAM,030908110216,2025182410020,PIMK,P
+MPU2082_052,AFFDHALIA QISTINA BINTI MOHAMAD,920113035202,2025182390032,PMO,P
+MPU2082_053,ANIS SYAHIRAH BINTI JOHARI,970125305148,2025182390033,PMO,P
+MPU2082_054,CHAN SHIN YHEE,010725070292,2025182390034,PMO,P
+MPU2082_055,CHONG JING JIE,960623025924,2025182390035,PMO,P
+MPU2082_056,CHONG KAR YEE,010325050436,2025182390036,PMO,P
+MPU2082_057,FATIN NUR SYAHIRAH BINTI MOHD HANAFI,930606025220,2025182390037,PMO,P
+MPU2082_058,GAN QIAN HAN,000411010108,2025182390038,PMO,P
+MPU2082_059,KERTHIGA A/P CHANDRAN,021016020472,2025182390039,PMO,P
+MPU2082_060,KUIK WEI SHENG,000604030703,2025182390040,PMO,L
+MPU2082_061,LEE KIE TIENG,971011136352,2025182390041,PMO,P
+MPU2082_062,LEE QIAN WEN,910316025136,2025182390042,PMO,P
+MPU2082_063,MUHAMMAD ASYRAF FITRI BIN MOHAMMAD RAZUKI,010112030407,2025182390043,PMO,L
+MPU2082_064,MUHAMMAD SYAFIQ BIN MANSOR,940722115345,2025182390044,PMO,L
+MPU2082_065,NANTHINI A/P RAJAGOBAL,000519020850,2025182390045,PMO,P
+MPU2082_066,NATASHA ADILA BINTI AZAHARI,980315026448,2025182390046,PMO,P
+MPU2082_067,NUR HASMIZAH BINTI MUSA,991106025434,2025182390047,PMO,P
+MPU2082_068,NUR LIYANA BINTI OSMAN,950722075848,2025182390048,PMO,P
+MPU2082_069,QUAH SWEE GIM,921122075278,2025182390050,PMO,P
+MPU2082_070,RAMYAA A/P BABOOCHI,990110027606,2025182390051,PMO,P
+MPU2082_071,SHAMALLA DEWI MUNIANDY,001228080866,2025182390052,PMO,P
+MPU2082_072,SUTANTH A/L KUNSURAMAN,000530020851,2025182390053,PMO,L
+MPU2082_073,THOASSHANNYAA A/P NALLAPPAN,981216087610,2025182390054,PMO,P
+MPU2082_074,VANMATHI A/P SUNDARAJO,940830075280,2025182390055,PMO,P
+MPU2082_075,WEE LI XIAN,010726010902,2025182390056,PMO,P
+MPU2082_076,ONG SIEW HOON,960619075160,2025182390149,PMO,P`;
 
-            const linkGambar = d.Link_Gambar || d.URL_GAMBAR || d.link_gambar || "";
-            loadImage(document.getElementById('sImg'), document.getElementById('sPlIcon'), linkGambar);
+const PELAJAR_LIST = RAW_PELAJAR.trim().split('\n').map(line => {
+  const [bil, nama, nokp, agiliran, kelas, jantina] = line.split(',');
+  return { bil, nama, nokp, agiliran, kelas, jantina };
+});
 
-            const plist = document.getElementById('peerList');
-            if (!kelas || kelas.toString().trim() === "") {
-                plist.innerHTML = '<p class="text-xs text-center text-red-400 mt-8 font-bold px-2"><i class="fas fa-exclamation-triangle mr-1"></i>Profil Kumpulan Tidak Lengkap. Sila hubungi Pensyarah.</p>';
-                return;
-            }
+// ================================================================
+// STATE
+// ================================================================
+let currentUser = null;
+let currentRole = null;
+let currentScreen = null;
+let markahDB = {};
+let biodataDB = {};   // { nokp: { jawatan, kumpulan, noDlmKumpulan, alahan, ubat, notel, gambar (URL Drive) } }
+let peerRatingsDB = [];
+let currentPelajar = null;
+let pendingPhotoBase64 = null;  // base64 sementara sebelum upload
+let pendingPhotoFile = null;    // File object untuk upload ke Drive
 
-            plist.innerHTML = '<p class="text-xs text-center text-slate-500 mt-8">Memuatkan...</p>';
-            const r = await fetch(`${API}?action=getPeers&noKP=${d.No_KP || d.NOKP}&kelas=${encodeURIComponent(kelas)}`);
-            const o = await r.json();
-            if (o.status === "success") {
-                plist.innerHTML = o.data.length === 0
-                    ? '<p class="text-xs text-center text-slate-500 mt-8">Tiada rakan dalam kumpulan ini.</p>'
-                    : o.data.map(p => `
-                        <div class="flex justify-between items-center p-3 bg-black/20 rounded-xl border border-white/5">
-                            <p class="text-xs font-bold w-2/3 truncate">${p.Nama}</p>
-                            ${p.Selesai
-                                ? '<span class="text-[9px] text-green-400 font-bold whitespace-nowrap"><i class="fas fa-check mr-1"></i>Selesai</span>'
-                                : `<button onclick="openPeerModal('${p.No_KP}', '${p.Nama.replace(/'/g, "\\'")}')" class="px-3 py-2 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Nilai</button>`}
-                        </div>`).join('');
-            }
-        }
+// ================================================================
+// FIX 1: SIMPAN KE GOOGLE APPS SCRIPT (bukan localStorage)
+// Semua data disimpan ke Google Sheets via Apps Script
+// Gambar diupload ke Google Drive
+// ================================================================
 
-        function openPeerModal(kp, nama) {
-            targetPeer = { kp, nama };
-            document.getElementById('peerNameDisplay').textContent = nama;
-            ['q1','q2','q3','q4'].forEach(id => { document.getElementById(id).value = 3; document.getElementById('v' + id.replace('q', '')).innerText = 3; });
-            document.getElementById('peerModal').classList.remove('hidden');
-            document.body.classList.add('modal-open');
-        }
+// ================================================================
+// GOOGLE APPS SCRIPT API — GitHub Pages → GAS via fetch()
+// GAS mesti deploy sebagai "Anyone" dengan CORS support
+// ================================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby9MCofwQSWXvAvEvBuFLg4apUkuO6QyfYwqpAIIZXnqbxgaXGkFkrPDhUnndhtjeHeFg/exec';
 
-        function closeModal() {
-            document.getElementById('peerModal').classList.add('hidden');
-            document.body.classList.remove('modal-open');
-        }
+// ================================================================
+// HELPER: Panggil GAS via fetch (JSONP untuk elak CORS block)
+// GAS tidak support CORS dari luar domain — guna URL param + callback
+// ================================================================
+async function callGAS(action, payload = {}) {
+  try {
+    // Encode payload sebagai URL parameter (GAS doGet method)
+    const params = new URLSearchParams({
+      action,
+      payload: JSON.stringify(payload)
+    });
+    const url = GAS_URL + '?' + params.toString();
 
-        async function submitPeerEval() {
-            const btn = document.getElementById('peerSubBtn'); btn.disabled = true; btn.textContent = "MENGHANTAR...";
-            const p = {
-                action: "submitPeerEval", penilaiKP: myData.No_KP, dinilaiKP: targetPeer.kp,
-                dinilaiNama: targetPeer.nama, kelas: myData.Kelas,
-                q1: Number(document.getElementById('q1').value), q2: Number(document.getElementById('q2').value),
-                q3: Number(document.getElementById('q3').value), q4: Number(document.getElementById('q4').value)
-            };
-            await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) });
-            btn.disabled = false; btn.textContent = "HANTAR PENILAIAN";
-            alert("✅ Penilaian berjaya disimpan!"); closeModal(); initStudent(myData);
-        }
+    const resp = await fetch(url, {
+      method: 'GET',
+      redirect: 'follow'
+    });
 
-        async function initLecturer(em) {
-            document.getElementById('loginScreen').classList.add('hidden-section');
-            document.getElementById('lecturerDash').classList.remove('hidden-section');
-            document.getElementById('lList').innerHTML = '<p class="text-xs text-slate-500 p-4">Memuatkan pelajar...</p>';
-            const r = await fetch(`${API}?action=getLecturerStudents&email=${encodeURIComponent(em)}`);
-            const o = await r.json(); lData = o.data;
-            // Lebarkan senarai pada desktop
-            document.getElementById('lListWrap').style.maxHeight = window.innerWidth >= 1024 ? '600px' : '280px';
-            document.getElementById('lList').innerHTML = lData.map((s, i) => `
-                <div onclick="selLecStudent(${i})" class="p-4 bg-white/5 rounded-2xl mb-2 cursor-pointer active:bg-white/15 border-l-4 ${s.markahSediaAda ? 'border-green-500' : 'border-transparent'}">
-                    <p class="font-bold text-xs truncate">${s.Nama_Pelajar}</p>
-                    <div class="flex justify-between items-center mt-1">
-                        <p class="text-[9px] text-slate-400">${s.No_KP}</p>
-                        ${s.peerEval ? '<span class="text-[8px] bg-indigo-500/30 px-2 py-0.5 rounded text-indigo-200">Radar ✅</span>' : ''}
-                    </div>
-                </div>`).join('');
-        }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    // GAS kadang-kadang return HTML redirect — cuba parse JSON
+    try {
+      return JSON.parse(text);
+    } catch {
+      // Cuba cari JSON dalam response
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]);
+      throw new Error('Response bukan JSON');
+    }
+  } catch (e) {
+    console.warn('GAS fetch gagal:', e.message);
+    return null;
+  }
+}
 
-        function selLecStudent(index) {
-            curS = lData[index];
-            document.getElementById('gradingPanel').classList.remove('hidden');
-            document.getElementById('lName').textContent = curS.Nama_Pelajar;
-            document.getElementById('lKP').textContent = curS.No_KP;
-            // Scroll ke panel markah pada mobile
-            if (window.innerWidth < 1024) {
-                setTimeout(() => document.getElementById('gradingPanel').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-            }
-            loadImage(document.getElementById('li'), document.getElementById('liPlaceholder'), curS.Link_Gambar);
-            drawRadar(curS.peerEval);
-            if (curS.markahSediaAda) {
-                document.getElementById('h1').value = curS.markahSediaAda.hp1; document.getElementById('h5').value = curS.markahSediaAda.hp5;
-                document.getElementById('h8').value = curS.markahSediaAda.hp8; document.getElementById('h10').value = curS.markahSediaAda.hp10;
-                document.getElementById('justTxt').value = curS.markahSediaAda.just === "-" ? "" : curS.markahSediaAda.just;
-            } else { ['h1','h5','h8','h10','justTxt'].forEach(i => document.getElementById(i).value = ''); }
-            calcTotal();
-        }
+// POST untuk data yang besar (markah batch, biodata, gambar)
+async function callGASPost(action, payload = {}) {
+  try {
+    const body = new FormData();
+    body.append('action', action);
+    body.append('payload', JSON.stringify(payload));
 
-        function drawRadar(peerData) {
-            if (radarInstance) radarInstance.destroy();
-            const canvas = document.getElementById('radarChart'), msg = document.getElementById('noPeerMsg');
-            if (!peerData) { msg.classList.remove('hidden'); canvas.style.display = 'none'; return; }
-            msg.classList.add('hidden'); canvas.style.display = '';
-            radarInstance = new Chart(canvas, {
-                type: 'radar',
-                data: {
-                    labels: ['Kepimpinan', 'Autonomi', 'Tanggungjawab', 'Kerjasama'],
-                    datasets: [{ label: `Purata (${peerData.jumlahPenilai} Rakan)`, data: [peerData.kepimpinan, peerData.autonomi, peerData.tanggungjawab, peerData.kerjasama], backgroundColor: 'rgba(99,102,241,0.4)', borderColor: '#818cf8', borderWidth: 2 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 9 } } } }, scales: { r: { grid: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: '#cbd5e1', font: { size: 9 } }, ticks: { display: false }, min: 0, max: 5 } } }
-            });
-        }
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      body,
+      redirect: 'follow'
+    });
 
-        function calcTotal() {
-            let h1 = Number(document.getElementById('h1').value), h5 = Number(document.getElementById('h5').value),
-                h8 = Number(document.getElementById('h8').value), h10 = Number(document.getElementById('h10').value);
-            if (h1 > 30) { document.getElementById('h1').value = 30; h1 = 30; } else if (h1 < 0) { document.getElementById('h1').value = 0; h1 = 0; }
-            if (h5 > 10) { document.getElementById('h5').value = 10; h5 = 10; } else if (h5 < 0) { document.getElementById('h5').value = 0; h5 = 0; }
-            if (h8 > 30) { document.getElementById('h8').value = 30; h8 = 30; } else if (h8 < 0) { document.getElementById('h8').value = 0; h8 = 0; }
-            if (h10 > 30) { document.getElementById('h10').value = 30; h10 = 30; } else if (h10 < 0) { document.getElementById('h10').value = 0; h10 = 0; }
-            const t = h1 + h5 + h8 + h10; document.getElementById('tm').textContent = t.toFixed(1);
-            let g = "F"; if (t >= 90) g = "A+"; else if (t >= 80) g = "A"; else if (t >= 75) g = "A-"; else if (t >= 70) g = "B+"; else if (t >= 65) g = "B"; else if (t >= 60) g = "B-"; else if (t >= 55) g = "C+"; else if (t >= 50) g = "C"; else if (t >= 40) g = "C-"; else if (t >= 30) g = "D+"; else if (t >= 20) g = "D";
-            document.getElementById('gd').textContent = g;
-            document.getElementById('justArea').classList.toggle('hidden', g !== "A+");
-            validateSave();
-        }
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]);
+      throw new Error('Response bukan JSON');
+    }
+  } catch (e) {
+    console.warn('GAS POST gagal:', e.message);
+    return null;
+  }
+}
 
-        function validateSave() {
-            const g = document.getElementById('gd').textContent, j = document.getElementById('justTxt').value.trim();
-            document.getElementById('saveLecBtn').disabled = (g === "A+" && j === "");
-        }
+// ================================================================
+// SIMPAN DATA KE SHEETS
+// ================================================================
+async function saveMarkahData() {
+  // Cache tempatan dulu
+  try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
 
-        async function saveMarks() {
-            const b = document.getElementById('saveLecBtn'); b.disabled = true; b.textContent = "MENYIMPAN...";
-            const p = { action: "submitScores", noKP: curS.No_KP, hp1: Number(document.getElementById('h1').value), hp5: Number(document.getElementById('h5').value), hp8: Number(document.getElementById('h8').value), hp10: Number(document.getElementById('h10').value), justifikasi: document.getElementById('justTxt').value, penilai: localStorage.getItem('le') };
-            await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) });
-            alert("✅ Markah berjaya disimpan!"); initLecturer(localStorage.getItem('le'));
-        }
+  // Hantar ke GAS — batch semua sekaligus
+  const rows = Object.entries(markahDB).map(([nokp, m]) => {
+    const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+    if (!p) return null;
+    return {
+      nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
+      kuiz: m.kuiz ?? null, hp4: m.hp4 ?? null, hp5: m.hp5 ?? null,
+      hp3: m.hp3 ?? null, hp8: m.hp8 ?? null,
+      dikemaskiniOleh: currentUser?.nama || ''
+    };
+  }).filter(Boolean);
 
-        function logout() { localStorage.clear(); location.reload(); }
+  if (rows.length > 0) {
+    await callGASPost('saveBatchMarkah', { rows });
+  }
+}
 
-        function previewImage(input) {
-            if (input.files[0]) {
-                const r = new FileReader();
-                r.onload = e => {
-                    document.getElementById('sImg').src = e.target.result;
-                    document.getElementById('sImg').classList.remove('hidden');
-                    document.getElementById('sPlIcon').classList.add('hidden');
-                    // Tunjuk preview tambahan
-                    document.getElementById('imgPreview').src = e.target.result;
-                    document.getElementById('imgPreviewWrap').classList.remove('hidden');
-                };
-                r.readAsDataURL(input.files[0]);
-            }
-        }
+async function saveBiodataData(nokpSingle) {
+  try { sessionStorage.setItem('ipg_biodata', JSON.stringify(biodataDB)); } catch(e) {}
+  const b = biodataDB[nokpSingle];
+  if (!b) return;
+  const p = PELAJAR_LIST.find(x => x.nokp === nokpSingle);
+  await callGASPost('saveBiodata', {
+    nokp: nokpSingle, nama: p?.nama || '', kelas: p?.kelas || '',
+    agiliran: p?.agiliran || '',
+    jawatan: b.jawatan || '', kumpulan: b.kumpulan || '',
+    noDlmKumpulan: b.noDlmKumpulan || '', alahan: b.alahan || '',
+    ubat: b.ubat || '', noTelKecemasan: b.notel || '',
+    urlGambar: b.gambar || ''
+  });
+}
 
-        async function hUp() {
-            const f = document.getElementById('fIn');
-            if (!f.files[0]) return alert("Sila pilih fail gambar terlebih dahulu!");
-            const btn = document.getElementById('upBtn'); btn.disabled = true; btn.textContent = "MEMUAT NAIK...";
-            try {
-                const r = new FileReader();
-                r.onload = async (e) => {
-                    try {
-                        await fetch(API, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: "uploadImage", noKP: myData.No_KP, imageData: e.target.result.split(',')[1], mimeType: f.files[0].type, fileName: "MPU_" + myData.No_KP + "_" + Date.now() }) });
-                        alert("✅ Gambar berjaya dimuat naik!");
-                        const res = await fetch(`${API}?action=checkLogin&noKP=${encodeURIComponent(myData.No_KP)}`);
-                        const data = await res.json();
-                        if (data.status === "success") { localStorage.setItem('userMPU', JSON.stringify(data.data)); initStudent(data.data); }
-                        else location.reload();
-                    } catch (err) { alert("Ralat semasa muat naik. Sila cuba lagi."); btn.disabled = false; btn.textContent = "UPLOAD"; }
-                };
-                r.readAsDataURL(f.files[0]);
-            } catch (err) { alert("Ralat: " + err.message); btn.disabled = false; btn.textContent = "UPLOAD"; }
-        }
+async function savePeerData(rating) {
+  try { sessionStorage.setItem('ipg_peer', JSON.stringify(peerRatingsDB)); } catch(e) {}
+  await callGASPost('savePeerRating', {
+    reviewerId: rating.Reviewer_ID, targetId: rating.Target_ID,
+    siri: rating.Siri || 1, kumpulan: rating.Kumpulan || '',
+    kepimpinan: rating.Kepimpinan, kerjasama: rating.Kerjasama,
+    komunikasi: rating.Komunikasi, komitmen: rating.Komitmen,
+    sahsiah: rating.Sahsiah
+  });
+}
 
-        // Resize handler untuk lecturer list height
-        window.addEventListener('resize', () => {
-            const wrap = document.getElementById('lListWrap');
-            if (wrap) wrap.style.maxHeight = window.innerWidth >= 1024 ? '600px' : '280px';
+// ================================================================
+// MUAT DATA DARI SHEETS SEMASA LOGIN
+// ================================================================
+async function loadDataFromSheets() {
+  try {
+    // Muat satu persatu untuk elak timeout
+    const markahRes = await callGAS('getAllMarkah');
+    if (markahRes?.ok && markahRes.data) {
+      markahDB = {};
+      markahRes.data.forEach(m => {
+        if (!m.nokp) return;
+        markahDB[m.nokp] = {
+          kuiz: m.kuiz != null ? parseFloat(m.kuiz) : undefined,
+          hp4:  m.hp4  != null ? parseFloat(m.hp4)  : undefined,
+          hp5:  m.hp5  != null ? parseFloat(m.hp5)  : undefined,
+          hp3:  m.hp3  != null ? parseFloat(m.hp3)  : undefined,
+          hp8:  m.hp8  != null ? parseFloat(m.hp8)  : undefined,
+        };
+        // Buang kunci undefined
+        Object.keys(markahDB[m.nokp]).forEach(k => {
+          if (markahDB[m.nokp][k] === undefined) delete markahDB[m.nokp][k];
+        });
+      });
+      try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
+    }
+
+    const biodataRes = await callGAS('getAllBiodata');
+    if (biodataRes?.ok && biodataRes.data) {
+      biodataDB = {};
+      biodataRes.data.forEach(b => {
+        if (!b.nokp) return;
+        biodataDB[b.nokp] = {
+          jawatan: b.jawatan || '', kumpulan: b.kumpulan || '',
+          noDlmKumpulan: b.noDlmKumpulan || '', alahan: b.alahan || '',
+          ubat: b.ubat || '', notel: b.noTelKecemasan || '',
+          gambar: b.urlGambar || ''
+        };
+      });
+      try { sessionStorage.setItem('ipg_biodata', JSON.stringify(biodataDB)); } catch(e) {}
+    }
+
+    const peerRes = await callGAS('getPeerRatings', {});
+    if (peerRes?.ok && peerRes.data) {
+      peerRatingsDB = peerRes.data;
+      try { sessionStorage.setItem('ipg_peer', JSON.stringify(peerRatingsDB)); } catch(e) {}
+    }
+  } catch (e) {
+    console.warn('Load dari Sheets gagal, guna cache:', e);
+    loadFromSession();
+  }
+}
+
+function loadFromSession() {
+  try {
+    const m = sessionStorage.getItem('ipg_markah');
+    if (m) markahDB = JSON.parse(m);
+    const b = sessionStorage.getItem('ipg_biodata');
+    if (b) biodataDB = JSON.parse(b);
+    const p = sessionStorage.getItem('ipg_peer');
+    if (p) peerRatingsDB = JSON.parse(p);
+  } catch(e) {}
+}
+
+// ================================================================
+// UPLOAD GAMBAR KE GOOGLE DRIVE via GAS POST
+// Gambar dihantar sebagai base64 string
+// ================================================================
+async function uploadGambarKeDrive(file, nokp) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const base64Data = e.target.result; // full data URL: data:image/jpeg;base64,...
+      const base64 = base64Data.split(',')[1];
+      const mimeType = file.type || 'image/jpeg';
+      const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+      const fileName = 'gambar_' + nokp + '_' + Date.now() + '.' + ext;
+
+      try {
+        const result = await callGASPost('uploadGambar', {
+          base64, mimeType, fileName,
+          folderId: DRIVE_FOLDER_ID,
+          nokp
         });
 
-        window.onload = () => {
-            const u = localStorage.getItem('userMPU'); if (u) initStudent(JSON.parse(u));
-            const le = localStorage.getItem('le'); if (le) initLecturer(le);
-        };
-    </script>
+        if (result?.ok && result.url) {
+          // GAS return direct view URL dari Drive
+          resolve(result.url);
+        } else {
+          // Fallback: simpan base64 terus (kekal dalam session)
+          console.warn('Upload ke Drive gagal, guna base64:', result?.error);
+          resolve(base64Data);
+        }
+      } catch (err) {
+        console.warn('Upload exception:', err);
+        resolve(base64Data); // fallback base64
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca fail gambar'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// ================================================================
+// GRADE CALCULATION
+// ================================================================
+function calcMarkah(nokp) {
+  const m = markahDB[nokp] || {};
+  const k = parseFloat(m.kuiz) || 0;
+  const hpk1 = k * 0.10;
+  const hp4 = parseFloat(m.hp4) || 0;
+  const hp5 = parseFloat(m.hp5) || 0;
+  const hpk2 = hp4 * 0.30 + hp5 * 0.30;
+  const hp3 = parseFloat(m.hp3) || 0;
+  const hp8 = parseFloat(m.hp8) || 0;
+  const hpk3 = hp3 * 0.15 + hp8 * 0.15;
+  const jumlah = hpk1 + hpk2 + hpk3;
+  return { hpk1, hpk2, hpk3, jumlah, k, hp4, hp5, hp3, hp8 };
+}
+
+function getGred(j) {
+  if (j >= 90) return { gred: 'A+', mata: 4.0 };
+  if (j >= 80) return { gred: 'A', mata: 4.0 };
+  if (j >= 75) return { gred: 'A-', mata: 3.7 };
+  if (j >= 70) return { gred: 'B+', mata: 3.3 };
+  if (j >= 65) return { gred: 'B', mata: 3.0 };
+  if (j >= 60) return { gred: 'B-', mata: 2.7 };
+  if (j >= 55) return { gred: 'C+', mata: 2.3 };
+  if (j >= 50) return { gred: 'C', mata: 2.0 };
+  if (j >= 45) return { gred: 'C-', mata: 1.7 };
+  if (j >= 40) return { gred: 'D', mata: 1.3 };
+  return { gred: 'F', mata: 0 };
+}
+
+function gredClass(g) {
+  if (!g || g === '—') return 'text-muted';
+  if (g.startsWith('A')) return 'gred-A';
+  if (g.startsWith('B')) return 'gred-B';
+  if (g.startsWith('C')) return 'gred-C';
+  if (g.startsWith('D')) return 'gred-D';
+  return 'gred-F';
+}
+
+function getInitials(nama) {
+  return nama.split(' ').filter(w => /^[A-Z]/.test(w)).slice(0, 2).map(w => w[0]).join('') || nama.slice(0, 2);
+}
+
+function avatarBg(nama) {
+  const colors = ['#E6F1FB','#E1F5EE','#EEEDFE','#FAEEDA','#FAECE7','#EAF3DE'];
+  const textColors = ['#185FA5','#0F6E56','#534AB7','#854F0B','#993C1D','#3B6D11'];
+  const idx = nama.charCodeAt(0) % colors.length;
+  return { bg: colors[idx], text: textColors[idx] };
+}
+
+// FIX 3: Render avatar dengan gambar yang betul crop
+function renderAvatar(size, nama, gambarUrl, extraStyle = '') {
+  const ini = getInitials(nama);
+  const { bg, text } = avatarBg(nama);
+  const imgHtml = gambarUrl
+    ? `<img src="${gambarUrl}" alt="${nama}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;border-radius:50%;" onerror="this.parentElement.innerHTML='<span>${ini}</span>'"/>`
+    : `<span>${ini}</span>`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:${text};display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*0.35)}px;font-weight:600;overflow:hidden;flex-shrink:0;${extraStyle}">${imgHtml}</div>`;
+}
+
+// ================================================================
+// NOTIFICATIONS
+// ================================================================
+function notify(msg, type = 'info') {
+  const bar = document.getElementById('notification-bar');
+  bar.textContent = msg;
+  bar.style.display = 'block';
+  bar.style.background = type === 'success' ? '#3B6D11' : type === 'error' ? '#A32D2D' : '#1a1a1a';
+  clearTimeout(bar._timer);
+  bar._timer = setTimeout(() => { bar.style.display = 'none'; }, 3500);
+}
+
+// ================================================================
+// AUTH
+// ================================================================
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'pensyarah') || (i === 1 && tab === 'pelajar'));
+  });
+  document.getElementById('auth-pensyarah-form').classList.toggle('hidden', tab !== 'pensyarah');
+  document.getElementById('auth-pelajar-form').classList.toggle('hidden', tab !== 'pelajar');
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  document.getElementById('auth-error-msg').textContent = msg;
+  el.classList.remove('hidden');
+}
+
+async function doLogin() {
+  document.getElementById('auth-error').classList.add('hidden');
+  const isP = !document.getElementById('auth-pensyarah-form').classList.contains('hidden');
+
+  if (isP) {
+    const email = document.getElementById('auth-email').value.trim();
+    const pass = document.getElementById('auth-password').value.trim();
+    const user = PENSYARAH_DATA.find(u => u.email === email && String(u.password) === String(pass));
+    if (!user) { showAuthError('E-mel atau kata laluan tidak sah.'); return; }
+    currentUser = user;
+    currentRole = 'pensyarah';
+    await loadDataFromSheets();
+    startPensyarahApp();
+  } else {
+    const nokp = document.getElementById('auth-nokp').value.trim();
+    const pelajar = PELAJAR_LIST.find(p => p.nokp === nokp);
+    if (!pelajar) { showAuthError('Nombor kad pengenalan tidak dijumpai.'); return; }
+    currentUser = pelajar;
+    currentRole = 'pelajar';
+    currentPelajar = pelajar;
+    await loadDataFromSheets();
+    startPelajarApp();
+  }
+}
+
+function doLogout() {
+  currentUser = null;
+  currentRole = null;
+  currentPelajar = null;
+  pendingPhotoBase64 = null;
+  pendingPhotoFile = null;
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('screen-auth').classList.remove('hidden');
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+// ================================================================
+// APP STARTS
+// ================================================================
+function startPensyarahApp() {
+  document.getElementById('screen-auth').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  buildSidebarPensyarah();
+  navigateTo('dashboard');
+}
+
+function startPelajarApp() {
+  document.getElementById('screen-auth').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  buildSidebarPelajar();
+  navigateTo('pelajar-biodata');
+}
+
+// ================================================================
+// SIDEBARS
+// ================================================================
+function buildSidebarPensyarah() {
+  const u = currentUser;
+  const bio = biodataDB[u.nokp] || {};
+  document.getElementById('sidebar-user-info').innerHTML = `
+    ${renderAvatar(32, u.nama, bio.gambar || null)}
+    <div class="sidebar-user-info">
+      <div class="name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
+      <div class="role">${u.role === 'admin' ? 'Pentadbir' : 'Pensyarah'}</div>
+    </div>`;
+
+  const nav = [
+    { icon: homeIcon(), label: 'Papan Pemuka', screen: 'dashboard' },
+    { icon: usersIcon(), label: 'Senarai Pelajar', screen: 'pelajar-list' },
+    { icon: checkIcon(), label: 'Rekod Markah', screen: 'markah-entry' },
+    { icon: chartIcon(), label: 'Laporan & Analisis', screen: 'laporan' },
+    { icon: starIcon(), label: 'Penilaian Rakan', screen: 'peer-review-view' },
+  ];
+  document.getElementById('sidebar-nav').innerHTML = nav.map(n => `
+    <div class="nav-item" id="nav-${n.screen}" onclick="navigateTo('${n.screen}')">
+      ${n.icon}<span>${n.label}</span>
+    </div>`).join('');
+}
+
+function buildSidebarPelajar() {
+  const u = currentUser;
+  const bio = biodataDB[u.nokp] || {};
+  document.getElementById('sidebar-user-info').innerHTML = `
+    ${renderAvatar(32, u.nama, bio.gambar || null)}
+    <div class="sidebar-user-info">
+      <div class="name">${u.nama.split(' ').slice(0,2).join(' ')}</div>
+      <div class="role">${u.kelas} — ${u.agiliran}</div>
+    </div>`;
+
+  // FIX 2: Pelajar HANYA ada 2 menu — Profil & Penilaian Rakan
+  const nav = [
+    { icon: userIcon(), label: 'Profil & Biodata', screen: 'pelajar-biodata' },
+    { icon: starIcon(), label: 'Penilaian Rakan', screen: 'pelajar-peer' },
+  ];
+  document.getElementById('sidebar-nav').innerHTML = nav.map(n => `
+    <div class="nav-item" id="nav-${n.screen}" onclick="navigateTo('${n.screen}')">
+      ${n.icon}<span>${n.label}</span>
+    </div>`).join('');
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+function navigateTo(screen) {
+  currentScreen = screen;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + screen);
+  if (navEl) navEl.classList.add('active');
+
+  const titles = {
+    'dashboard': 'Papan Pemuka',
+    'pelajar-list': 'Senarai Pelajar',
+    'markah-entry': 'Rekod Markah',
+    'laporan': 'Laporan & Analisis',
+    'peer-review-view': 'Penilaian Rakan Sebaya',
+    'pelajar-biodata': 'Profil & Biodata',
+    'pelajar-peer': 'Penilaian Rakan',
+  };
+  document.getElementById('page-title').textContent = titles[screen] || screen;
+
+  const screens = {
+    'dashboard': renderDashboard,
+    'pelajar-list': renderPelajarList,
+    'markah-entry': renderMarkahEntry,
+    'laporan': renderLaporan,
+    'peer-review-view': renderPeerReviewView,
+    'pelajar-biodata': renderPelajarBiodata,
+    'pelajar-peer': renderPelajarPeer,
+  };
+  if (screens[screen]) screens[screen]();
+}
+
+// ================================================================
+// ICONS
+// ================================================================
+const ic = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${d}</svg>`;
+const homeIcon = () => ic('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
+const usersIcon = () => ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
+const checkIcon = () => ic('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>');
+const chartIcon = () => ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
+const starIcon = () => ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
+const userIcon = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+
+// ================================================================
+// SCREEN: DASHBOARD (Pensyarah)
+// ================================================================
+function renderDashboard() {
+  const total = PELAJAR_LIST.length;
+  const dah_markah = PELAJAR_LIST.filter(p => markahDB[p.nokp] && Object.keys(markahDB[p.nokp]).length > 0).length;
+  const peratus_lengkap = Math.round((dah_markah / total) * 100);
+
+  const kelas = {};
+  PELAJAR_LIST.forEach(p => { kelas[p.kelas] = (kelas[p.kelas] || 0) + 1; });
+
+  let sumMark = 0, countMark = 0;
+  PELAJAR_LIST.forEach(p => {
+    if (markahDB[p.nokp]) { const c = calcMarkah(p.nokp); sumMark += c.jumlah; countMark++; }
+  });
+  const avg = countMark > 0 ? (sumMark / countMark).toFixed(1) : '—';
+
+  const gradeDist = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0 };
+  PELAJAR_LIST.forEach(p => {
+    if (!markahDB[p.nokp]) return;
+    const c = calcMarkah(p.nokp);
+    const g = getGred(c.jumlah).gred;
+    const cat = g[0];
+    gradeDist[cat] = (gradeDist[cat] || 0) + 1;
+  });
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="grid-4" style="margin-bottom:16px">
+      <div class="stat-card">
+        <div class="label">Jumlah Pelajar</div>
+        <div class="value">${total}</div>
+        <div class="sub">3 kelas</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Markah Direkod</div>
+        <div class="value">${dah_markah}</div>
+        <div class="sub">${peratus_lengkap}% selesai</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Purata Markah</div>
+        <div class="value">${avg}</div>
+        <div class="sub">daripada 100</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Penilaian Rakan</div>
+        <div class="value">${peerRatingsDB.length}</div>
+        <div class="sub">rekod diserah</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div><div class="card-title">Agihan Gred</div><div class="card-subtitle">Berdasarkan markah PB keseluruhan</div></div>
+        </div>
+        <canvas id="chart-grade" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><div class="card-title">Pelajar Mengikut Kelas</div><div class="card-subtitle">Taburan kelas semasa</div></div>
+        </div>
+        <canvas id="chart-kelas" height="180"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Kemajuan Pemarkahan</div>
+        <div class="flex items-center gap-8">
+          <span class="badge badge-blue">${dah_markah}/${total} pelajar</span>
+          <button class="btn btn-sm btn-primary" onclick="navigateTo('markah-entry')">Rekod Markah</button>
+        </div>
+      </div>
+      <div style="margin-bottom:8px;font-size:13px;color:var(--text-secondary)">${peratus_lengkap}% selesai</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${peratus_lengkap}%;background:var(--primary)"></div></div>
+    </div>`;
+
+  setTimeout(() => {
+    new Chart(document.getElementById('chart-grade'), {
+      type: 'bar',
+      data: { labels: ['A','B','C','D','F'], datasets: [{ data: Object.values(gradeDist), backgroundColor: ['#639922','#378ADD','#EF9F27','#E24B4A','#A32D2D'], borderRadius: 6, borderSkipped: false }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+    new Chart(document.getElementById('chart-kelas'), {
+      type: 'doughnut',
+      data: { labels: Object.keys(kelas), datasets: [{ data: Object.values(kelas), backgroundColor: ['#378ADD','#1D9E75','#D85A30'], borderWidth: 2 }] },
+      options: { plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+    });
+  }, 100);
+}
+
+// ================================================================
+// SCREEN: SENARAI PELAJAR
+// ================================================================
+function renderPelajarList() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="card p-0">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <input type="text" id="search-pelajar" placeholder="Cari nama / angka giliran..." style="flex:1;min-width:200px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
+        <select id="filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
+        </select>
+        <span id="pelajar-count" class="badge badge-blue">— pelajar</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bil</th><th>Nama</th><th>Angka Giliran</th><th>Kelas</th><th>Jantina</th><th>Biodata</th><th>Jumlah Markah</th><th>Gred</th><th>Tindakan</th>
+            </tr>
+          </thead>
+          <tbody id="pelajar-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  function renderRows() {
+    const q = document.getElementById('search-pelajar').value.toLowerCase();
+    const kls = document.getElementById('filter-kelas').value;
+    const filtered = PELAJAR_LIST.filter(p => {
+      return (!q || p.nama.toLowerCase().includes(q) || p.agiliran.toLowerCase().includes(q)) &&
+             (kls === 'Semua' || p.kelas === kls);
+    });
+    document.getElementById('pelajar-count').textContent = filtered.length + ' pelajar';
+    document.getElementById('pelajar-tbody').innerHTML = filtered.map((p, i) => {
+      const calc = calcMarkah(p.nokp);
+      const hasMark = !!markahDB[p.nokp];
+      const { gred } = hasMark ? getGred(calc.jumlah) : { gred: '—' };
+      const bio = biodataDB[p.nokp] || {};
+      const hasBio = bio.jawatan !== undefined;
+      return `<tr>
+        <td class="text-muted text-sm">${i+1}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${renderAvatar(28, p.nama, bio.gambar || null)}
+            <span class="fw-500" style="font-size:13px">${p.nama}</span>
+          </div>
+        </td>
+        <td class="text-muted text-sm">${p.agiliran}</td>
+        <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
+        <td>${p.jantina==='L'?'♂ Lelaki':'♀ Perempuan'}</td>
+        <td><span class="badge ${hasBio?'badge-green':'badge-gray'}">${hasBio?'Lengkap':'Belum'}</span></td>
+        <td><span class="fw-500">${hasMark?calc.jumlah.toFixed(1):'—'}</span></td>
+        <td><span class="${gredClass(gred)}">${gred}</span></td>
+        <td><button class="btn btn-xs" onclick="viewPelajarDetail('${p.nokp}')">Detail</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('search-pelajar').addEventListener('input', renderRows);
+  document.getElementById('filter-kelas').addEventListener('change', renderRows);
+  renderRows();
+}
+
+// ================================================================
+// SCREEN: REKOD MARKAH
+// ================================================================
+function renderMarkahEntry() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title" style="margin-bottom:10px">Komponen Pentaksiran Berterusan — MPU2082</div>
+      <div class="grid-3">
+        <div style="background:var(--primary-light);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK1 — Kuiz</div>
+          <div style="font-size:20px;font-weight:700;color:var(--primary)">10%</div>
+          <div style="font-size:12px;color:#185FA5;margin-top:2px">HP1</div>
+        </div>
+        <div style="background:var(--success-light);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--success);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK2 — Ujian Amali I</div>
+          <div style="font-size:20px;font-weight:700;color:var(--success)">60%</div>
+          <div style="font-size:12px;color:var(--success);margin-top:2px">HP4 (30%) + HP5 (30%)</div>
+        </div>
+        <div style="background:var(--warning-light);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK3 — Ujian Amali II</div>
+          <div style="font-size:20px;font-weight:700;color:var(--warning)">30%</div>
+          <div style="font-size:12px;color:var(--warning);margin-top:2px">HP3 (15%) + HP8 (15%)</div>
+        </div>
+      </div>
+    </div>
+    <div class="card p-0">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <input type="text" id="mark-search" placeholder="Cari nama..." style="flex:1;min-width:180px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
+        <select id="mark-filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
+        </select>
+        <button class="btn btn-success btn-sm" onclick="saveAllMarkah()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Simpan Semua
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama</th><th>Kelas</th>
+              <th>Kuiz /100 <span style="font-weight:400;font-size:10px">(×10%)</span></th>
+              <th>HP4 /100 <span style="font-weight:400;font-size:10px">(×30%)</span></th>
+              <th>HP5 /100 <span style="font-weight:400;font-size:10px">(×30%)</span></th>
+              <th>HP3 /100 <span style="font-weight:400;font-size:10px">(×15%)</span></th>
+              <th>HP8 /100 <span style="font-weight:400;font-size:10px">(×15%)</span></th>
+              <th>Jumlah</th><th>Gred</th>
+            </tr>
+          </thead>
+          <tbody id="markah-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  function renderMarkahRows() {
+    const q = document.getElementById('mark-search').value.toLowerCase();
+    const kls = document.getElementById('mark-filter-kelas').value;
+    const filtered = PELAJAR_LIST.filter(p =>
+      (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls)
+    );
+    document.getElementById('markah-tbody').innerHTML = filtered.map(p => {
+      const m = markahDB[p.nokp] || {};
+      const calc = calcMarkah(p.nokp);
+      const hasMark = !!markahDB[p.nokp];
+      const { gred } = hasMark ? getGred(calc.jumlah) : { gred: '—' };
+      return `<tr>
+        <td><div style="font-size:12px;font-weight:500">${p.nama}</div><div style="font-size:10px;color:var(--text-secondary)">${p.agiliran}</div></td>
+        <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
+        ${['kuiz','hp4','hp5','hp3','hp8'].map(k => `
+        <td><input class="mark-input" data-nokp="${p.nokp}" data-key="${k}" type="number" min="0" max="100" step="0.5"
+          value="${m[k] !== undefined ? m[k] : ''}" placeholder="—" onchange="updateMarkahLive('${p.nokp}')"/></td>`).join('')}
+        <td><strong id="total-${p.nokp}">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong></td>
+        <td><span id="gred-${p.nokp}" class="${gredClass(gred)}">${gred}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('mark-search').addEventListener('input', renderMarkahRows);
+  document.getElementById('mark-filter-kelas').addEventListener('change', renderMarkahRows);
+  renderMarkahRows();
+}
+
+function updateMarkahLive(nokp) {
+  const inputs = document.querySelectorAll(`.mark-input[data-nokp="${nokp}"]`);
+  const m = {};
+  inputs.forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v)) m[inp.dataset.key] = Math.min(100, Math.max(0, v));
+  });
+  markahDB[nokp] = m;
+  const calc = calcMarkah(nokp);
+  const { gred } = getGred(calc.jumlah);
+  const totalEl = document.getElementById('total-' + nokp);
+  const gredEl = document.getElementById('gred-' + nokp);
+  if (totalEl) totalEl.textContent = calc.jumlah.toFixed(1);
+  if (gredEl) { gredEl.textContent = gred; gredEl.className = gredClass(gred); }
+}
+
+async function saveAllMarkah() {
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+
+  const inputs = document.querySelectorAll('.mark-input');
+  inputs.forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v)) {
+      if (!markahDB[inp.dataset.nokp]) markahDB[inp.dataset.nokp] = {};
+      markahDB[inp.dataset.nokp][inp.dataset.key] = Math.min(100, Math.max(0, v));
+    }
+  });
+
+  try {
+    await saveMarkahData();
+    notify('Markah berjaya disimpan ke Sheets!', 'success');
+  } catch(e) {
+    notify('Markah disimpan tempatan (semak sambungan)', 'info');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Simpan Semua'; }
+  }
+}
+
+// ================================================================
+// SCREEN: LAPORAN
+// ================================================================
+function renderLaporan() {
+  const computed = PELAJAR_LIST.map(p => {
+    const c = calcMarkah(p.nokp);
+    return { ...p, ...c, hasMark: !!markahDB[p.nokp] };
+  });
+  const withMark = computed.filter(p => p.hasMark);
+  const gradeOrder = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
+  const gradeDist = {};
+  gradeOrder.forEach(g => gradeDist[g] = 0);
+  withMark.forEach(p => { gradeDist[getGred(p.jumlah).gred]++; });
+
+  const kelasStats = {};
+  ['PBKK','PIMK','PMO'].forEach(k => {
+    const kp = withMark.filter(p => p.kelas === k);
+    kelasStats[k] = { n: kp.length, avg: kp.length ? (kp.reduce((s,p)=>s+p.jumlah,0)/kp.length).toFixed(1) : '—' };
+  });
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="tabs">
+      <div class="tab active" onclick="switchLaporanTab('overview',this)">Ringkasan</div>
+      <div class="tab" onclick="switchLaporanTab('detail',this)">Senarai Detail</div>
+    </div>
+    <div id="laporan-overview">
+      <div class="grid-3" style="margin-bottom:16px">
+        ${['PBKK','PIMK','PMO'].map(k=>`<div class="stat-card"><div class="label">${k}</div><div class="value">${kelasStats[k].n}</div><div class="sub">Purata: ${kelasStats[k].avg}</div></div>`).join('')}
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-title" style="margin-bottom:12px">Taburan Gred</div><canvas id="chart-lap-grade" height="220"></canvas></div>
+        <div class="card"><div class="card-title" style="margin-bottom:12px">Taburan Markah</div><canvas id="chart-lap-dist" height="220"></canvas></div>
+      </div>
+      <div class="card"><div class="card-title" style="margin-bottom:12px">Analisis Per Komponen</div><canvas id="chart-lap-comp" height="160"></canvas></div>
+    </div>
+    <div id="laporan-detail" class="hidden">
+      <div class="card p-0">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Nama</th><th>Kelas</th><th>Kuiz</th><th>HP4</th><th>HP5</th><th>HP3</th><th>HP8</th><th>HPK1</th><th>HPK2</th><th>HPK3</th><th>Jumlah</th><th>Gred</th></tr></thead>
+            <tbody>${computed.map((p,i)=>{
+              const {gred}=p.hasMark?getGred(p.jumlah):{gred:'—'};
+              const m=markahDB[p.nokp]||{};
+              return `<tr><td class="text-muted">${i+1}</td><td style="font-size:12px;font-weight:500;max-width:180px">${p.nama}</td><td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td><td>${m.kuiz!==undefined?m.kuiz:'—'}</td><td>${m.hp4!==undefined?m.hp4:'—'}</td><td>${m.hp5!==undefined?m.hp5:'—'}</td><td>${m.hp3!==undefined?m.hp3:'—'}</td><td>${m.hp8!==undefined?m.hp8:'—'}</td><td>${p.hasMark?p.hpk1.toFixed(1):'—'}</td><td>${p.hasMark?p.hpk2.toFixed(1):'—'}</td><td>${p.hasMark?p.hpk3.toFixed(1):'—'}</td><td><strong>${p.hasMark?p.jumlah.toFixed(1):'—'}</strong></td><td><span class="${gredClass(gred)}">${gred}</span></td></tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+
+  window.switchLaporanTab = function(tab, el) {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('laporan-overview').classList.toggle('hidden', tab!=='overview');
+    document.getElementById('laporan-detail').classList.toggle('hidden', tab!=='detail');
+    if (tab==='overview') setTimeout(buildLaporanCharts, 50);
+  };
+  setTimeout(buildLaporanCharts, 100);
+
+  function buildLaporanCharts() {
+    ['chart-lap-grade','chart-lap-dist','chart-lap-comp'].forEach(id=>{const c=Chart.getChart(id);if(c)c.destroy();});
+    const gLabels = gradeOrder.filter(g=>gradeDist[g]>0);
+    new Chart(document.getElementById('chart-lap-grade'),{type:'bar',data:{labels:gLabels,datasets:[{label:'Pelajar',data:gLabels.map(g=>gradeDist[g]),backgroundColor:gLabels.map(g=>g.startsWith('A')?'#97C459':g.startsWith('B')?'#85B7EB':g.startsWith('C')?'#EF9F27':g.startsWith('D')?'#E24B4A':'#A32D2D'),borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+    const buckets=Array(10).fill(0);
+    withMark.forEach(p=>{buckets[Math.min(9,Math.floor(p.jumlah/10))]++;});
+    new Chart(document.getElementById('chart-lap-dist'),{type:'bar',data:{labels:['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'],datasets:[{label:'Pelajar',data:buckets,backgroundColor:'#378ADD',borderRadius:4,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+    const compKeys=['k','hp4','hp5','hp3','hp8'],compLabels=['Kuiz','HP4','HP5','HP3','HP8'];
+    const compAvg=compKeys.map(k=>{const vals=withMark.map(p=>p[k]).filter(v=>v>0);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):0;});
+    new Chart(document.getElementById('chart-lap-comp'),{type:'bar',data:{labels:compLabels,datasets:[{label:'Purata',data:compAvg,backgroundColor:['#378ADD','#1D9E75','#1D9E75','#EF9F27','#EF9F27'],borderRadius:5,borderSkipped:false}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,max:100}}}});
+  }
+}
+
+// ================================================================
+// SCREEN: PEER REVIEW (Pensyarah)
+// ================================================================
+function renderPeerReviewView() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+        <div><div class="card-title">Penilaian Rakan Sebaya</div><div class="card-subtitle">Spider web — Kepimpinan, Kerjasama, Komunikasi, Komitmen, Sahsiah</div></div>
+        <select id="pr-filter" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
+        </select>
+      </div>
+    </div>
+    <div id="peer-grid" class="grid-3"></div>`;
+
+  function renderPeerCards() {
+    const kls = document.getElementById('pr-filter').value;
+    const filtered = PELAJAR_LIST.filter(p => kls==='Semua'||p.kelas===kls);
+    const dims = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
+    document.getElementById('peer-grid').innerHTML = filtered.map(p => {
+      const ratings = peerRatingsDB.filter(r=>r.Target_ID===p.agiliran);
+      const avgDims = dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;});
+      const avg = avgDims.reduce((a,b)=>a+b,0)/5;
+      const bio = biodataDB[p.nokp]||{};
+      return `<div class="card" style="cursor:pointer" onclick="viewPeerDetail('${p.nokp}')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          ${renderAvatar(36, p.nama, bio.gambar||null)}
+          <div><div style="font-size:12px;font-weight:600">${p.nama.split(' ').slice(0,3).join(' ')}</div><div style="font-size:11px;color:var(--text-secondary)">${p.kelas} — ${ratings.length} penilaian</div></div>
+        </div>
+        <canvas id="spider-${p.nokp}" height="160"></canvas>
+        <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--text-secondary)">Purata: <strong>${avg.toFixed(1)}/5</strong></div>
+      </div>`;
+    }).join('');
+    setTimeout(()=>{ filtered.forEach(p=>{ const ratings=peerRatingsDB.filter(r=>r.Target_ID===p.agiliran); const dims=['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah']; const avgDims=dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;}); buildSpider('spider-'+p.nokp,dims,avgDims); }); },50);
+  }
+
+  document.getElementById('pr-filter').addEventListener('change', renderPeerCards);
+  renderPeerCards();
+}
+
+function buildSpider(canvasId, labels, data) {
+  const existing = Chart.getChart(canvasId); if(existing) existing.destroy();
+  const el = document.getElementById(canvasId); if(!el) return;
+  new Chart(el,{type:'radar',data:{labels,datasets:[{data,fill:true,backgroundColor:'rgba(55,138,221,0.15)',borderColor:'#378ADD',pointBackgroundColor:'#378ADD',pointBorderColor:'#fff'}]},options:{scales:{r:{min:0,max:5,ticks:{stepSize:1,font:{size:9}},pointLabels:{font:{size:10}}}},plugins:{legend:{display:false}},responsive:true}});
+}
+
+// ================================================================
+// SCREEN: PELAJAR — BIODATA (FIX 1 + FIX 3)
+// ================================================================
+function renderPelajarBiodata() {
+  const p = currentPelajar;
+  const bio = biodataDB[p.nokp] || {};
+  const gambarUrl = bio.gambar || null;
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Maklumat Peribadi</div></div>
+        <div style="text-align:center;margin-bottom:16px">
+          <div id="bio-avatar-preview" style="width:100px;height:100px;border-radius:50%;overflow:hidden;margin:0 auto 12px;border:3px solid var(--border);background:${avatarBg(p.nama).bg};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:${avatarBg(p.nama).text}">
+            ${gambarUrl ? `<img src="${gambarUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;" onerror="this.style.display='none'"/>` : getInitials(p.nama)}
+          </div>
+          <div style="font-size:15px;font-weight:600">${p.nama}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${p.kelas} | ${p.agiliran}</div>
+        </div>
+        <hr class="divider">
+        <div class="info-row"><div class="info-label">No. KP</div><div class="info-value">${p.nokp}</div></div>
+        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
+        <div class="info-row"><div class="info-label">Kelas</div><div class="info-value">${p.kelas}</div></div>
+        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Biodata Tambahan</div></div>
+
+        <!-- FIX 1 + FIX 3: Upload gambar yang betul -->
+        <div class="photo-upload-area" onclick="triggerPhotoUpload()" id="upload-zone">
+          <div class="preview-circle-wrap" id="upload-preview-circle">
+            ${gambarUrl
+              ? `<img src="${gambarUrl}" alt="Gambar profil" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;" onerror="this.parentElement.innerHTML='<span style=\\"font-size:30px;opacity:.4\\">📷</span>'"/>`
+              : `<span style="font-size:30px;opacity:.4">📷</span>`
+            }
+          </div>
+          <div id="upload-status-text" style="font-size:12px;color:var(--text-secondary)">Klik untuk muat naik gambar</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">JPG / PNG, maks 3MB — muka akan nampak jelas</div>
+          <div class="upload-progress" id="upload-progress">
+            <div class="upload-spinner"></div>
+            <span>Memuat naik gambar...</span>
+          </div>
+          <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handlePhotoUpload(event)"/>
+        </div>
+
+        <div class="form-group">
+          <label>Jawatan dalam Kumpulan</label>
+          <select id="bio-jawatan">
+            <option value="">— Pilih Jawatan —</option>
+            <option ${bio.jawatan==='Pengerusi'?'selected':''}>Pengerusi</option>
+            <option ${bio.jawatan==='Setiausaha'?'selected':''}>Setiausaha</option>
+            <option ${bio.jawatan==='Bendahari'?'selected':''}>Bendahari</option>
+            <option ${bio.jawatan==='Ahli'?'selected':''}>Ahli</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Kumpulan</label>
+          <select id="bio-kumpulan">
+            <option value="">— Pilih Kumpulan —</option>
+            ${[1,2,3,4,5,6,7,8,9,10].map(n=>`<option ${bio.kumpulan==n?'selected':''}>Kumpulan ${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>No. Dalam Kumpulan</label>
+          <input type="number" id="bio-nodlm" min="1" max="20" value="${bio.noDlmKumpulan||''}" placeholder="1"/>
+        </div>
+        <div class="form-group">
+          <label>Alahan / Masalah Kesihatan</label>
+          <textarea id="bio-alahan" rows="2" placeholder="Tiada">${bio.alahan||''}</textarea>
+        </div>
+        <div class="form-group">
+          <label>Ubat-ubatan</label>
+          <textarea id="bio-ubat" rows="2" placeholder="Tiada">${bio.ubat||''}</textarea>
+        </div>
+        <div class="form-group">
+          <label>No. Tel Kecemasan</label>
+          <input type="tel" id="bio-notel" value="${bio.notel||''}" placeholder="01X-XXXXXXXX"/>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="saveBiodataPelajar()" id="btn-save-biodata">Simpan Biodata</button>
+      </div>
+    </div>`;
+}
+
+function triggerPhotoUpload() {
+  document.getElementById('photo-file').click();
+}
+
+// FIX 3: Preview gambar dengan crop betul + FIX 1: simpan ke Drive
+async function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    notify('Fail terlalu besar. Sila pilih gambar kurang dari 3MB.', 'error');
+    return;
+  }
+
+  // Tunjuk preview segera (base64) sambil upload
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    pendingPhotoBase64 = e.target.result;
+    pendingPhotoFile = file;
+
+    // Update preview dengan crop betul
+    document.getElementById('upload-preview-circle').innerHTML =
+      `<img src="${pendingPhotoBase64}" alt="Preview" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>`;
+    document.getElementById('upload-status-text').textContent = 'Gambar dipilih — tekan Simpan untuk muat naik';
+
+    // Update avatar preview di sebelah kiri
+    const avatarEl = document.getElementById('bio-avatar-preview');
+    if (avatarEl) {
+      avatarEl.innerHTML = `<img src="${pendingPhotoBase64}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// FIX 1: Simpan biodata + upload gambar ke Drive, kekal selepas refresh
+async function saveBiodataPelajar() {
+  const btnSave = document.getElementById('btn-save-biodata');
+  btnSave.disabled = true;
+  btnSave.textContent = 'Menyimpan...';
+
+  try {
+    let gambarUrl = biodataDB[currentPelajar.nokp]?.gambar || null;
+
+    // Upload gambar ke Google Drive jika ada fail baru
+    if (pendingPhotoFile) {
+      document.getElementById('upload-progress').style.display = 'flex';
+      document.getElementById('upload-status-text').textContent = 'Memuat naik gambar ke Drive...';
+
+      gambarUrl = await uploadGambarKeDrive(pendingPhotoFile, currentPelajar.nokp);
+
+      document.getElementById('upload-progress').style.display = 'none';
+      document.getElementById('upload-status-text').textContent = 'Gambar berjaya dimuat naik ✓';
+      pendingPhotoFile = null;
+    }
+
+    // Simpan biodata
+    const nokp = currentPelajar.nokp;
+    biodataDB[nokp] = {
+      jawatan: document.getElementById('bio-jawatan').value,
+      kumpulan: document.getElementById('bio-kumpulan').value,
+      noDlmKumpulan: document.getElementById('bio-nodlm').value,
+      alahan: document.getElementById('bio-alahan').value,
+      ubat: document.getElementById('bio-ubat').value,
+      notel: document.getElementById('bio-notel').value,
+      gambar: gambarUrl
+    };
+
+    // Simpan ke Sheets via GAS
+    await saveBiodataData(nokp);
+
+    // Update sidebar dengan gambar baru
+    buildSidebarPelajar();
+
+    notify('Biodata berjaya disimpan!', 'success');
+    pendingPhotoBase64 = null;
+  } catch (e) {
+    notify('Ralat semasa menyimpan: ' + e.message, 'error');
+  } finally {
+    btnSave.disabled = false;
+    btnSave.textContent = 'Simpan Biodata';
+  }
+}
+
+// ================================================================
+// SCREEN: PELAJAR — PEER REVIEW
+// ================================================================
+function renderPelajarPeer() {
+  const p = currentPelajar;
+  const bio = biodataDB[p.nokp] || {};
+  if (!bio.kumpulan) {
+    document.getElementById('main-content').innerHTML = `
+      <div class="card">
+        <div class="alert alert-info"><span>ℹ</span><span>Sila lengkapkan biodata anda terlebih dahulu dan pilih kumpulan sebelum membuat penilaian rakan.</span></div>
+        <button class="btn btn-primary" onclick="navigateTo('pelajar-biodata')">Ke Biodata</button>
+      </div>`;
+    return;
+  }
+
+  const peers = PELAJAR_LIST.filter(peer => {
+    const pbio = biodataDB[peer.nokp] || {};
+    return peer.nokp !== p.nokp && pbio.kumpulan === bio.kumpulan && peer.kelas === p.kelas;
+  });
+
+  const alreadyRated = peerRatingsDB.filter(r=>r.Reviewer_ID===p.agiliran).map(r=>r.Target_ID);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">Kumpulan ${bio.kumpulan} — ${p.kelas}</div>
+      <div class="card-subtitle">${peers.length} rakan dalam kumpulan anda</div>
+    </div>
+    <div class="grid-2" id="peer-rate-grid">
+      ${peers.length===0?`<div class="empty-state"><div class="icon">👥</div><p>Tiada rakan dalam kumpulan yang sama. Pastikan ahli kumpulan telah mengisi biodata mereka.</p></div>`:''}
+      ${peers.map(peer=>{
+        const rated = alreadyRated.includes(peer.agiliran);
+        const pbio = biodataDB[peer.nokp]||{};
+        return `<div class="card">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            ${renderAvatar(40, peer.nama, pbio.gambar||null)}
+            <div>
+              <div style="font-size:13px;font-weight:600">${peer.nama.split(' ').slice(0,3).join(' ')}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${peer.kelas} | ${pbio.jawatan||'Ahli'}</div>
+            </div>
+            ${rated?`<span class="badge badge-green" style="margin-left:auto">Dinilai ✓</span>`:''}
+          </div>
+          ${rated?`<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:10px">Anda telah menilai rakan ini.</div>`:
+          `<div id="rate-form-${peer.nokp}">
+            ${['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'].map(dim=>`
+            <div style="margin-bottom:10px">
+              <div style="font-size:12px;font-weight:500;margin-bottom:5px;color:var(--text-secondary)">${dim}</div>
+              <div class="star-group" data-dim="${dim}" data-target="${peer.nokp}">
+                ${[1,2,3,4,5].map(n=>`<div class="star" onclick="selectStar(this,${n})" data-val="${n}">${n}</div>`).join('')}
+              </div>
+            </div>`).join('')}
+            <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="submitPeerRating('${peer.nokp}','${peer.agiliran}')">Hantar Penilaian</button>
+          </div>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function selectStar(el, val) {
+  const group = el.closest('.star-group');
+  group.querySelectorAll('.star').forEach(s => { s.classList.toggle('selected', parseInt(s.dataset.val) <= val); });
+  group.dataset.selected = val;
+}
+
+async function submitPeerRating(targetNokp, targetAgiliran) {
+  const container = document.getElementById('rate-form-' + targetNokp);
+  const dims = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
+  const record = {
+    Timestamp: new Date().toISOString(),
+    Reviewer_ID: currentPelajar.agiliran,
+    Target_ID: targetAgiliran,
+    Siri: 1,
+    Kumpulan: (biodataDB[currentPelajar.nokp]||{}).kumpulan||''
+  };
+  let valid = true;
+  dims.forEach(d => {
+    const group = container.querySelector(`.star-group[data-dim="${d}"]`);
+    if (!group||!group.dataset.selected) { valid = false; return; }
+    record[d] = parseFloat(group.dataset.selected);
+  });
+  if (!valid) { notify('Sila beri markah untuk semua dimensi!', 'error'); return; }
+  peerRatingsDB.push(record);
+  await savePeerData(record);
+  notify('Penilaian dihantar!', 'success');
+  renderPelajarPeer();
+}
+
+// ================================================================
+// HELPER: View Pelajar Detail Modal
+// ================================================================
+function viewPelajarDetail(nokp) {
+  const p = PELAJAR_LIST.find(x=>x.nokp===nokp);
+  if (!p) return;
+  const bio = biodataDB[nokp]||{};
+  const calc = calcMarkah(nokp);
+  const hasMark = !!markahDB[nokp];
+  const {gred} = hasMark?getGred(calc.jumlah):{gred:'—'};
+
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-header"><h3>Profil Pelajar</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <div style="text-align:center;margin-bottom:16px">
+          ${renderAvatar(80, p.nama, bio.gambar||null, 'margin:0 auto 12px;border:3px solid var(--border);')}
+          <div style="font-size:15px;font-weight:600;margin-top:6px">${p.nama}</div>
+          <span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}" style="margin-top:4px">${p.kelas}</span>
+        </div>
+        <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
+        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
+        ${bio.jawatan?`<div class="info-row"><div class="info-label">Jawatan</div><div class="info-value">${bio.jawatan}</div></div>`:''}
+        ${bio.kumpulan?`<div class="info-row"><div class="info-label">Kumpulan</div><div class="info-value">${bio.kumpulan}</div></div>`:''}
+        ${bio.alahan?`<div class="info-row"><div class="info-label">Alahan</div><div class="info-value">${bio.alahan}</div></div>`:''}
+        ${bio.notel?`<div class="info-row"><div class="info-label">No. Tel Kecemasan</div><div class="info-value">${bio.notel}</div></div>`:''}
+        <hr class="divider">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          <div class="stat-card"><div class="label">HPK1</div><div class="value" style="font-size:16px">${hasMark?calc.hpk1.toFixed(1):'—'}</div></div>
+          <div class="stat-card"><div class="label">HPK2</div><div class="value" style="font-size:16px">${hasMark?calc.hpk2.toFixed(1):'—'}</div></div>
+          <div class="stat-card"><div class="label">HPK3</div><div class="value" style="font-size:16px">${hasMark?calc.hpk3.toFixed(1):'—'}</div></div>
+        </div>
+        <div style="text-align:center">
+          <span style="font-size:24px;font-weight:700" class="${gredClass(gred)}">${hasMark?calc.jumlah.toFixed(1):'—'}</span>
+          <span style="font-size:14px;color:var(--text-secondary);margin-left:8px">Gred: <strong class="${gredClass(gred)}">${gred}</strong></span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeModal() { document.getElementById('modal-container').innerHTML=''; }
+
+function viewPeerDetail(nokp) {
+  const p = PELAJAR_LIST.find(x=>x.nokp===nokp);
+  if (!p) return;
+  const ratings = peerRatingsDB.filter(r=>r.Target_ID===p.agiliran);
+  const dims = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
+  const avgDims = dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;});
+
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-header"><h3>Penilaian Rakan — ${p.nama.split(' ').slice(0,2).join(' ')}</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <canvas id="spider-modal" height="250"></canvas>
+        <div style="margin-top:14px">
+          ${dims.map((d,i)=>`<div class="mark-summary-row"><div style="flex:1;font-size:13px;font-weight:500">${d}</div><div style="width:40px;text-align:right;font-size:13px">${avgDims[i].toFixed(1)}/5</div><div style="width:100px;padding-left:8px"><div class="progress-bar"><div class="progress-fill" style="width:${avgDims[i]/5*100}%;background:var(--primary)"></div></div></div></div>`).join('')}
+        </div>
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-secondary)">Berdasarkan ${ratings.length} penilaian rakan</div>
+      </div>
+    </div>`;
+  setTimeout(()=>buildSpider('spider-modal',dims,avgDims),50);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') closeModal();
+  if (e.key==='Enter') {
+    if (!document.getElementById('screen-auth').classList.contains('hidden')) doLogin();
+  }
+});
+
+// Init
+loadFromSession(); // muat dari session sebagai cache awal
+document.getElementById('screen-auth').classList.remove('hidden');
+document.getElementById('app').classList.add('hidden');
+</script>
 </body>
 </html>
