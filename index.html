@@ -314,6 +314,7 @@
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
 
   .stat-card {
     background: var(--bg);
@@ -1281,6 +1282,38 @@ function renderDashboard() {
   });
   const avg = countMark > 0 ? (sumMark / countMark).toFixed(1) : '—';
 
+  // ============================================================
+  // SISIHAN PIAWAI (Standard Deviation) — Jumlah Markah
+  // ============================================================
+  function hitungSP(values) {
+    const n = values.length;
+    if (n === 0) return 0;
+    const mean = values.reduce((a,b)=>a+b,0) / n;
+    const variance = values.reduce((a,b)=>a + Math.pow(b-mean,2), 0) / n;
+    return Math.sqrt(variance);
+  }
+
+  const jumlahMarkahList = PELAJAR_LIST
+    .filter(p => markahDB[p.nokp])
+    .map(p => calcMarkah(p.nokp).jumlah);
+  const spKeseluruhan = parseFloat(hitungSP(jumlahMarkahList).toFixed(2));
+
+  // SP mengikut kelas
+  const kelasList = ['PBKK','PIMK','PMO'];
+  const spKelas = {};
+  kelasList.forEach(k => {
+    const vals = PELAJAR_LIST.filter(p => p.kelas === k && markahDB[p.nokp]).map(p => calcMarkah(p.nokp).jumlah);
+    spKelas[k] = parseFloat(hitungSP(vals).toFixed(2));
+  });
+
+  // SP mengikut komponen (Kuiz, HP4, HP5, HP3, HP8)
+  const komponenKeys = ['kuiz','hp4','hp5','hp3','hp8'];
+  const komponenLabels = ['Kuiz','HP4','HP5','HP3','HP8'];
+  const spKomponen = komponenKeys.map(k => {
+    const vals = PELAJAR_LIST.filter(p => markahDB[p.nokp]).map(p => calcMarkah(p.nokp)[k]);
+    return parseFloat(hitungSP(vals).toFixed(2));
+  });
+
   const gradeDist = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0 };
   PELAJAR_LIST.forEach(p => {
     if (!markahDB[p.nokp]) return;
@@ -1291,7 +1324,7 @@ function renderDashboard() {
   });
 
   document.getElementById('main-content').innerHTML = `
-    <div class="grid-4" style="margin-bottom:16px">
+    <div class="grid-5" style="margin-bottom:16px">
       <div class="stat-card">
         <div class="label">Jumlah Pelajar</div>
         <div class="value">${total}</div>
@@ -1306,6 +1339,11 @@ function renderDashboard() {
         <div class="label">Purata Markah</div>
         <div class="value">${avg}</div>
         <div class="sub">daripada 100</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Sisihan Piawai (σ)</div>
+        <div class="value">${countMark > 0 ? spKeseluruhan : '—'}</div>
+        <div class="sub">jumlah markah keseluruhan</div>
       </div>
       <div class="stat-card">
         <div class="label">Penilaian Rakan</div>
@@ -1325,6 +1363,20 @@ function renderDashboard() {
           <div><div class="card-title">Pelajar Mengikut Kelas</div><div class="card-subtitle">Taburan kelas semasa</div></div>
         </div>
         <canvas id="chart-kelas" height="180"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div><div class="card-title">Sisihan Piawai — Setiap Komponen</div><div class="card-subtitle">Kuiz, HP4, HP5, HP3, HP8 (σ markah mentah)</div></div>
+        </div>
+        <canvas id="chart-sp-komponen" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div><div class="card-title">Sisihan Piawai — Jumlah Markah</div><div class="card-subtitle">Keseluruhan vs setiap kelas</div></div>
+        </div>
+        <canvas id="chart-sp-kelas" height="180"></canvas>
       </div>
     </div>
     <div class="card">
@@ -1349,6 +1401,37 @@ function renderDashboard() {
       type: 'doughnut',
       data: { labels: Object.keys(kelas), datasets: [{ data: Object.values(kelas), backgroundColor: ['#378ADD','#1D9E75','#D85A30'], borderWidth: 2 }] },
       options: { plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
+    });
+
+    // Bar chart: Sisihan Piawai setiap komponen (Kuiz, HP4, HP5, HP3, HP8)
+    new Chart(document.getElementById('chart-sp-komponen'), {
+      type: 'bar',
+      data: {
+        labels: komponenLabels,
+        datasets: [{ label: 'σ', data: spKomponen, backgroundColor: '#534AB7', borderRadius: 6, borderSkipped: false }]
+      },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'σ = ' + c.parsed.y } } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Sisihan Piawai' } } }
+      }
+    });
+
+    // Bar chart: Sisihan Piawai jumlah markah - Keseluruhan vs Kelas
+    new Chart(document.getElementById('chart-sp-kelas'), {
+      type: 'bar',
+      data: {
+        labels: ['Keseluruhan', ...kelasList],
+        datasets: [{
+          label: 'σ',
+          data: [spKeseluruhan, ...kelasList.map(k => spKelas[k])],
+          backgroundColor: ['#185FA5','#378ADD','#1D9E75','#D85A30'],
+          borderRadius: 6, borderSkipped: false
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'σ = ' + c.parsed.y } } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Sisihan Piawai (Jumlah Markah)' } } }
+      }
     });
   }, 100);
 }
