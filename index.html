@@ -800,25 +800,25 @@ const GAS_URL = 'https://script.google.com/a/macros/ipgm.edu.my/s/AKfycbwnMyQiez
 // ================================================================
 async function callGAS(action, payload = {}) {
   try {
-    // Encode payload sebagai URL parameter (GAS doGet method)
-    const params = new URLSearchParams({
-      action,
-      payload: JSON.stringify(payload)
-    });
-    const url = GAS_URL + '?' + params.toString();
+    // PENTING: guna POST (FormData) bukan GET — kerana URL berformat
+    // /a/macros/[domain]/s/.../exec akan STRIP query string (?action=...)
+    // semasa redirect ke googleusercontent.com bagi domain Workspace.
+    // Body POST tidak terjejas oleh masalah ini.
+    const body = new FormData();
+    body.append('action', action);
+    body.append('payload', JSON.stringify(payload));
 
-    const resp = await fetch(url, {
-      method: 'GET',
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      body,
       redirect: 'follow'
     });
 
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const text = await resp.text();
-    // GAS kadang-kadang return HTML redirect — cuba parse JSON
     try {
       return JSON.parse(text);
     } catch {
-      // Cuba cari JSON dalam response
       const match = text.match(/\{[\s\S]*\}/);
       if (match) return JSON.parse(match[0]);
       throw new Error('Response bukan JSON');
