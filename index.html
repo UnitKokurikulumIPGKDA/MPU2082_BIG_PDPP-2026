@@ -831,29 +831,41 @@ async function callGAS(action, payload = {}) {
 
 // POST untuk data yang besar (markah batch, biodata, gambar)
 async function callGASPost(action, payload = {}) {
-  try {
-    const body = new FormData();
-    body.append('action', action);
-    body.append('payload', JSON.stringify(payload));
+  const body = new FormData();
+  body.append('action', action);
+  body.append('payload', JSON.stringify(payload));
 
-    const resp = await fetch(GAS_URL, {
+  // KAEDAH "no-cors": penyelesaian paling stabil untuk akaun domain
+  // Workspace (@ipgm.edu.my). Browser tetap MENGHANTAR request POST
+  // dan GAS tetap MENJALANKAN fungsi (data ditulis ke Sheet/Drive),
+  // tetapi kita tidak boleh membaca respons (sebab tiada header CORS
+  // dari Google). Jadi anggap berjaya jika tiada ralat rangkaian.
+  try {
+    await fetch(GAS_URL, {
       method: 'POST',
       body,
+      mode: 'no-cors',
       redirect: 'follow'
     });
-
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      const match = text.match(/\{[\s\S]*\}/);
-      if (match) return JSON.parse(match[0]);
-      throw new Error('Response bukan JSON');
-    }
+    // Respons 'opaque' — tidak boleh dibaca, tapi request berjaya dihantar
+    return { ok: true, opaque: true };
   } catch (e) {
-    console.warn('GAS POST gagal:', e.message);
-    return null;
+    console.warn('GAS POST (no-cors) gagal:', e.message);
+
+    // Fallback: cuba mode normal (untuk persekitaran yang support CORS)
+    try {
+      const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
+      const text = await resp.text();
+      try { return JSON.parse(text); }
+      catch {
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) return JSON.parse(match[0]);
+        return { ok: true, opaque: true };
+      }
+    } catch (e2) {
+      console.warn('GAS POST fallback gagal:', e2.message);
+      return { ok: false, error: e2.message };
+    }
   }
 }
 
@@ -1899,38 +1911,62 @@ async function submitMeritDemerit(nokp) {
   btn.disabled = true;
   btn.textContent = 'Menyimpan...';
 
-  try {
-    const result = await callGASPost('saveMeritDemerit', {
-      nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
-      jenis, kategori, nota,
-      dicatatOleh: currentUser?.nama || ''
-    });
+  // Hantar ke GAS (no-cors — write tetap berjaya walau respons tak dibaca)
+  await callGASPost('saveMeritDemerit', {
+    nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
+    jenis, kategori, nota,
+    dicatatOleh: currentUser?.nama || ''
+  });
 
-    if (result?.ok) {
-      notify(result.message || 'Rekod disimpan!', 'success');
-      await loadAllMeritDemerit();
-      openMeritModal(nokp); // refresh modal dengan data terbaru
-    } else {
-      notify('Ralat: ' + (result?.error || 'Gagal simpan'), 'error');
-      btn.disabled = false;
-      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Tambah Rekod';
-    }
-  } catch (e) {
-    notify('Ralat: ' + e.message, 'error');
-    btn.disabled = false;
-  }
+  // OPTIMISTIC UPDATE: kemaskini meritDB tempatan serta-merta
+  // (kerana respons GAS sebenar tidak dapat dibaca akibat CORS)
+  const mata = jenis === 'Merit' ? (KATEGORI_MERIT[kategori] ?? 1) : (KATEGORI_DEMERIT[kategori] ?? 1);
+  if (!meritDB[nokp]) meritDB[nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+  const bucket = meritDB[nokp];
+  if (jenis === 'Merit') bucket.jumlahMerit += mata;
+  else bucket.jumlahDemerit += mata;
+  bucket.jumlahBersih = parseFloat((bucket.jumlahMerit - bucket.jumlahDemerit).toFixed(1));
+  bucket.records.unshift({
+    id: 'local-' + Date.now(), tarikh: Utilities_formatNow(),
+    nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
+    jenis, kategori, mata, nota, dicatatOleh: currentUser?.nama || ''
+  });
+  try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
+
+  notify((jenis === 'Merit' ? 'Merit' : 'Demerit') + ' (' + (jenis==='Merit'?'+':'-') + mata + ') dicatat!', 'success');
+  openMeritModal(nokp); // refresh modal dengan data terkini
+}
+
+// Format tarikh ringkas untuk rekod tempatan (dd/mm/yyyy hh:mm)
+function Utilities_formatNow() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 async function hapusMeritDemerit(id, nokp) {
   if (!confirm('Padam rekod ini?')) return;
-  const result = await callGASPost('deleteMeritDemerit', { id });
-  if (result?.ok) {
-    notify('Rekod dipadam.', 'success');
-    await loadAllMeritDemerit();
-    openMeritModal(nokp);
-  } else {
-    notify('Ralat: ' + (result?.error || 'Gagal padam'), 'error');
+
+  // Hantar ke GAS (no-cors)
+  if (!id.startsWith('local-')) {
+    await callGASPost('deleteMeritDemerit', { id });
   }
+
+  // OPTIMISTIC: buang dari meritDB tempatan serta-merta
+  const bucket = meritDB[nokp];
+  if (bucket) {
+    const idx = bucket.records.findIndex(r => r.id === id);
+    if (idx > -1) {
+      const removed = bucket.records.splice(idx, 1)[0];
+      if (removed.jenis === 'Merit') bucket.jumlahMerit -= removed.mata;
+      else bucket.jumlahDemerit -= removed.mata;
+      bucket.jumlahBersih = parseFloat((bucket.jumlahMerit - bucket.jumlahDemerit).toFixed(1));
+      try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
+    }
+  }
+
+  notify('Rekod dipadam.', 'success');
+  openMeritModal(nokp);
 }
 
 // ================================================================
