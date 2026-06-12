@@ -610,11 +610,11 @@
     <div id="auth-pensyarah-form">
       <div class="form-group">
         <label>E-mel</label>
-        <input type="email" id="auth-email" placeholder="email@ipgm.edu.my" value="hanifffaizal@gmail.com"/>
+        <input type="email" id="auth-email" placeholder="email@ipgm.edu.my" value=""/>
       </div>
       <div class="form-group">
         <label>Kata Laluan</label>
-        <input type="password" id="auth-password" placeholder="Kata laluan" value="790704025409"/>
+        <input type="password" id="auth-password" placeholder="Kata laluan" value=""/>
       </div>
     </div>
 
@@ -1940,8 +1940,6 @@ function renderPelajarBiodata() {
   const p = currentPelajar;
   const bio = biodataDB[p.nokp] || {};
   const gambarUrl = bio.gambar || null;
-  const merit = getMeritInfo(p.nokp);
-  const bersihClass = merit.jumlahBersih > 0 ? 'gred-A' : merit.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
 
   document.getElementById('main-content').innerHTML = `
     <div class="grid-2">
@@ -1959,13 +1957,6 @@ function renderPelajarBiodata() {
         <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
         <div class="info-row"><div class="info-label">Kelas</div><div class="info-value">${p.kelas}</div></div>
         <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
-        <hr class="divider">
-        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Merit / Demerit</div>
-        <div class="grid-3" style="gap:8px">
-          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Merit</div><div class="value gred-A" style="font-size:16px">+${merit.jumlahMerit}</div></div>
-          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Demerit</div><div class="value gred-F" style="font-size:16px">-${merit.jumlahDemerit}</div></div>
-          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Bersih</div><div class="value ${bersihClass}" style="font-size:16px">${merit.jumlahBersih>0?'+':''}${merit.jumlahBersih}</div></div>
-        </div>
       </div>
 
       <div class="card">
