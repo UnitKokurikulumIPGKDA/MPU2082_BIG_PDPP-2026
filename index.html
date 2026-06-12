@@ -792,7 +792,7 @@ let pendingPhotoFile = null;    // File object untuk upload ke Drive
 // GOOGLE APPS SCRIPT API — GitHub Pages → GAS via fetch()
 // GAS mesti deploy sebagai "Anyone" dengan CORS support
 // ================================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby9MCofwQSWXvAvEvBuFLg4apUkuO6QyfYwqpAIIZXnqbxgaXGkFkrPDhUnndhtjeHeFg/exec';
+const GAS_URL = 'https://script.google.com/a/macros/ipgm.edu.my/s/AKfycbwnMyQiezYOhHI28KD-ozAoj9a5DuHiCN2zTrt3Nj-PqsXPV_rXhYKYmFXdjbG3UzH1yg/exec';
 
 // ================================================================
 // HELPER: Panggil GAS via fetch (JSONP untuk elak CORS block)
@@ -1012,18 +1012,22 @@ async function uploadGambarKeDrive(file, nokp) {
 // ================================================================
 // GRADE CALCULATION
 // ================================================================
+// Had maksimum setiap komponen (markah dimasukkan terus, tiada wajaran)
+// Kuiz max 10 | HP4 max 30 | HP5 max 30 | HP3 max 15 | HP8 max 15 | Jumlah max 100
+const MARK_MAX = { kuiz: 10, hp4: 30, hp5: 30, hp3: 15, hp8: 15 };
+
 function calcMarkah(nokp) {
   const m = markahDB[nokp] || {};
-  const k = parseFloat(m.kuiz) || 0;
-  const hpk1 = k * 0.10;
-  const hp4 = parseFloat(m.hp4) || 0;
-  const hp5 = parseFloat(m.hp5) || 0;
-  const hpk2 = hp4 * 0.30 + hp5 * 0.30;
-  const hp3 = parseFloat(m.hp3) || 0;
-  const hp8 = parseFloat(m.hp8) || 0;
-  const hpk3 = hp3 * 0.15 + hp8 * 0.15;
-  const jumlah = hpk1 + hpk2 + hpk3;
-  return { hpk1, hpk2, hpk3, jumlah, k, hp4, hp5, hp3, hp8 };
+  const kuiz = Math.min(parseFloat(m.kuiz) || 0, MARK_MAX.kuiz);
+  const hp4  = Math.min(parseFloat(m.hp4)  || 0, MARK_MAX.hp4);
+  const hp5  = Math.min(parseFloat(m.hp5)  || 0, MARK_MAX.hp5);
+  const hp3  = Math.min(parseFloat(m.hp3)  || 0, MARK_MAX.hp3);
+  const hp8  = Math.min(parseFloat(m.hp8)  || 0, MARK_MAX.hp8);
+  const hpk1 = parseFloat(kuiz.toFixed(2));
+  const hpk2 = parseFloat((hp4 + hp5).toFixed(2));
+  const hpk3 = parseFloat((hp3 + hp8).toFixed(2));
+  const jumlah = parseFloat((hpk1 + hpk2 + hpk3).toFixed(2));
+  return { hpk1, hpk2, hpk3, jumlah, kuiz, hp4, hp5, hp3, hp8 };
 }
 
 function getGred(j) {
@@ -1111,6 +1115,7 @@ async function doLogin() {
     currentUser = user;
     currentRole = 'pensyarah';
     await loadDataFromSheets();
+    await loadAllMeritDemerit();
     startPensyarahApp();
   } else {
     const nokp = document.getElementById('auth-nokp').value.trim();
@@ -1120,6 +1125,7 @@ async function doLogin() {
     currentRole = 'pelajar';
     currentPelajar = pelajar;
     await loadDataFromSheets();
+    await loadAllMeritDemerit();
     startPelajarApp();
   }
 }
@@ -1171,6 +1177,7 @@ function buildSidebarPensyarah() {
     { icon: checkIcon(), label: 'Rekod Markah', screen: 'markah-entry' },
     { icon: chartIcon(), label: 'Laporan & Analisis', screen: 'laporan' },
     { icon: starIcon(), label: 'Penilaian Rakan', screen: 'peer-review-view' },
+    { icon: awardIcon(), label: 'Merit / Demerit', screen: 'merit-demerit' },
   ];
   document.getElementById('sidebar-nav').innerHTML = nav.map(n => `
     <div class="nav-item" id="nav-${n.screen}" onclick="navigateTo('${n.screen}')">
@@ -1214,6 +1221,7 @@ function navigateTo(screen) {
     'markah-entry': 'Rekod Markah',
     'laporan': 'Laporan & Analisis',
     'peer-review-view': 'Penilaian Rakan Sebaya',
+    'merit-demerit': 'Merit / Demerit Pelajar',
     'pelajar-biodata': 'Profil & Biodata',
     'pelajar-peer': 'Penilaian Rakan',
   };
@@ -1225,6 +1233,7 @@ function navigateTo(screen) {
     'markah-entry': renderMarkahEntry,
     'laporan': renderLaporan,
     'peer-review-view': renderPeerReviewView,
+    'merit-demerit': renderMeritDemerit,
     'pelajar-biodata': renderPelajarBiodata,
     'pelajar-peer': renderPelajarPeer,
   };
@@ -1241,6 +1250,7 @@ const checkIcon = () => ic('<polyline points="9 11 12 14 22 4"/><path d="M21 12v
 const chartIcon = () => ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>');
 const starIcon = () => ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
 const userIcon = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+const awardIcon = () => ic('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>');
 
 // ================================================================
 // SCREEN: DASHBOARD (Pensyarah)
@@ -1435,11 +1445,11 @@ function renderMarkahEntry() {
           <thead>
             <tr>
               <th>Nama</th><th>Kelas</th>
-              <th>Kuiz /100 <span style="font-weight:400;font-size:10px">(×10%)</span></th>
-              <th>HP4 /100 <span style="font-weight:400;font-size:10px">(×30%)</span></th>
-              <th>HP5 /100 <span style="font-weight:400;font-size:10px">(×30%)</span></th>
-              <th>HP3 /100 <span style="font-weight:400;font-size:10px">(×15%)</span></th>
-              <th>HP8 /100 <span style="font-weight:400;font-size:10px">(×15%)</span></th>
+              <th>Kuiz <span style="font-weight:600;font-size:11px;color:var(--primary)">/10</span></th>
+              <th>HP4 <span style="font-weight:600;font-size:11px;color:var(--success)">/30</span></th>
+              <th>HP5 <span style="font-weight:600;font-size:11px;color:var(--success)">/30</span></th>
+              <th>HP3 <span style="font-weight:600;font-size:11px;color:var(--warning)">/15</span></th>
+              <th>HP8 <span style="font-weight:600;font-size:11px;color:var(--warning)">/15</span></th>
               <th>Jumlah</th><th>Gred</th>
             </tr>
           </thead>
@@ -1462,9 +1472,10 @@ function renderMarkahEntry() {
       return `<tr>
         <td><div style="font-size:12px;font-weight:500">${p.nama}</div><div style="font-size:10px;color:var(--text-secondary)">${p.agiliran}</div></td>
         <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
-        ${['kuiz','hp4','hp5','hp3','hp8'].map(k => `
-        <td><input class="mark-input" data-nokp="${p.nokp}" data-key="${k}" type="number" min="0" max="100" step="0.5"
-          value="${m[k] !== undefined ? m[k] : ''}" placeholder="—" onchange="updateMarkahLive('${p.nokp}')"/></td>`).join('')}
+        ${[['kuiz',10],['hp4',30],['hp5',30],['hp3',15],['hp8',15]].map(([k,mx]) => `
+        <td><input class="mark-input" data-nokp="${p.nokp}" data-key="${k}" data-max="${mx}" type="number" min="0" max="${mx}" step="0.5"
+          value="${m[k] !== undefined ? m[k] : ''}" placeholder="—"
+          oninput="clampInput(this)" onchange="updateMarkahLive('${p.nokp}')"/></td>`).join('')}
         <td><strong id="total-${p.nokp}">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong></td>
         <td><span id="gred-${p.nokp}" class="${gredClass(gred)}">${gred}</span></td>
       </tr>`;
@@ -1476,19 +1487,30 @@ function renderMarkahEntry() {
   renderMarkahRows();
 }
 
+// Clamp input mengikut had komponen masing-masing
+function clampInput(inp) {
+  const mx = parseFloat(inp.dataset.max) || 100;
+  let v = parseFloat(inp.value);
+  if (isNaN(v)) return;
+  if (v < 0) { inp.value = 0; v = 0; }
+  if (v > mx) { inp.value = mx; v = mx; inp.style.borderColor = 'var(--danger)'; }
+  else { inp.style.borderColor = ''; }
+}
+
 function updateMarkahLive(nokp) {
   const inputs = document.querySelectorAll(`.mark-input[data-nokp="${nokp}"]`);
   const m = {};
   inputs.forEach(inp => {
     const v = parseFloat(inp.value);
-    if (!isNaN(v)) m[inp.dataset.key] = Math.min(100, Math.max(0, v));
+    const mx = parseFloat(inp.dataset.max) || 100;
+    if (!isNaN(v)) m[inp.dataset.key] = Math.min(mx, Math.max(0, v));
   });
   markahDB[nokp] = m;
   const calc = calcMarkah(nokp);
   const { gred } = getGred(calc.jumlah);
   const totalEl = document.getElementById('total-' + nokp);
   const gredEl = document.getElementById('gred-' + nokp);
-  if (totalEl) totalEl.textContent = calc.jumlah.toFixed(1);
+  if (totalEl) totalEl.textContent = calc.jumlah.toFixed(2);
   if (gredEl) { gredEl.textContent = gred; gredEl.className = gredClass(gred); }
 }
 
@@ -1501,7 +1523,8 @@ async function saveAllMarkah() {
     const v = parseFloat(inp.value);
     if (!isNaN(v)) {
       if (!markahDB[inp.dataset.nokp]) markahDB[inp.dataset.nokp] = {};
-      markahDB[inp.dataset.nokp][inp.dataset.key] = Math.min(100, Math.max(0, v));
+      const mx = parseFloat(inp.dataset.max) || 100;
+      markahDB[inp.dataset.nokp][inp.dataset.key] = Math.min(mx, Math.max(0, v));
     }
   });
 
@@ -1634,12 +1657,291 @@ function buildSpider(canvasId, labels, data) {
 }
 
 // ================================================================
+// MERIT / DEMERIT — KONFIGURASI & STATE
+// ================================================================
+const KATEGORI_MERIT = {
+  'Hadir Awal':  2,
+  'Aktif':       3,
+  'Membantu':    3,
+  'Kepimpinan':  5
+};
+const KATEGORI_DEMERIT = {
+  'Lewat':                 2,
+  'Tidak Hadir':           5,
+  'Tidak Siapkan Tugasan': 3,
+  'Salah Laku':            5
+};
+
+// Cache: { nokp: { jumlahMerit, jumlahDemerit, jumlahBersih, records: [...] } }
+let meritDB = {};
+
+// Muat semua rekod merit/demerit dan kumpul ikut nokp
+async function loadAllMeritDemerit() {
+  const res = await callGAS('getAllMeritDemerit');
+  meritDB = {};
+  if (res?.ok && res.data) {
+    res.data.forEach(r => {
+      if (!meritDB[r.nokp]) meritDB[r.nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+      const bucket = meritDB[r.nokp];
+      if (r.jenis === 'Merit') bucket.jumlahMerit += r.mata;
+      else bucket.jumlahDemerit += r.mata;
+      bucket.records.push(r);
+    });
+    Object.values(meritDB).forEach(b => {
+      b.jumlahBersih = parseFloat((b.jumlahMerit - b.jumlahDemerit).toFixed(1));
+      b.records.sort((a,b2) => b2.id.localeCompare(a.id));
+    });
+    try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
+  } else {
+    try { const c = sessionStorage.getItem('ipg_merit'); if (c) meritDB = JSON.parse(c); } catch(e) {}
+  }
+}
+
+function getMeritInfo(nokp) {
+  return meritDB[nokp] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+}
+
+// ================================================================
+// SCREEN: MERIT / DEMERIT (Pensyarah)
+// ================================================================
+function renderMeritDemerit() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="card-title">Merit / Demerit Pelajar</div>
+          <div class="card-subtitle">Kategori Merit: Hadir Awal (+2), Aktif (+3), Membantu (+3), Kepimpinan (+5) &nbsp;|&nbsp; Demerit: Lewat (-2), Tidak Hadir (-5), Tidak Siapkan Tugasan (-3), Salah Laku (-5)</div>
+        </div>
+        <button class="btn btn-sm" onclick="refreshMeritDemerit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Muat Semula
+        </button>
+      </div>
+    </div>
+
+    <div class="card p-0">
+      <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <input type="text" id="merit-search" placeholder="Cari nama pelajar..." style="flex:1;min-width:200px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
+        <select id="merit-filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+          <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
+        </select>
+        <select id="merit-sort" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+          <option value="nama">Susun: Nama</option>
+          <option value="bersih_desc">Susun: Jumlah Bersih (Tinggi → Rendah)</option>
+          <option value="bersih_asc">Susun: Jumlah Bersih (Rendah → Tinggi)</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama</th><th>Kelas</th>
+              <th style="text-align:center">Merit</th>
+              <th style="text-align:center">Demerit</th>
+              <th style="text-align:center">Jumlah Bersih</th>
+              <th style="text-align:center">Rekod</th>
+              <th>Tindakan</th>
+            </tr>
+          </thead>
+          <tbody id="merit-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  function renderRows() {
+    const q = document.getElementById('merit-search').value.toLowerCase();
+    const kls = document.getElementById('merit-filter-kelas').value;
+    const sortBy = document.getElementById('merit-sort').value;
+
+    let filtered = PELAJAR_LIST.filter(p =>
+      (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls)
+    );
+
+    filtered = filtered.map(p => ({ ...p, merit: getMeritInfo(p.nokp) }));
+
+    if (sortBy === 'bersih_desc') filtered.sort((a,b) => b.merit.jumlahBersih - a.merit.jumlahBersih);
+    else if (sortBy === 'bersih_asc') filtered.sort((a,b) => a.merit.jumlahBersih - b.merit.jumlahBersih);
+    else filtered.sort((a,b) => a.nama.localeCompare(b.nama));
+
+    document.getElementById('merit-tbody').innerHTML = filtered.map(p => {
+      const m = p.merit;
+      const bersihClass = m.jumlahBersih > 0 ? 'gred-A' : m.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
+      const bio = biodataDB[p.nokp] || {};
+      return `<tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${renderAvatar(28, p.nama, bio.gambar || null)}
+            <span class="fw-500" style="font-size:13px">${p.nama}</span>
+          </div>
+        </td>
+        <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
+        <td style="text-align:center"><span class="badge badge-green">+${m.jumlahMerit}</span></td>
+        <td style="text-align:center"><span class="badge badge-red">-${m.jumlahDemerit}</span></td>
+        <td style="text-align:center"><strong class="${bersihClass}" style="font-size:15px">${m.jumlahBersih > 0 ? '+' : ''}${m.jumlahBersih}</strong></td>
+        <td style="text-align:center"><span class="badge badge-gray">${m.records.length} rekod</span></td>
+        <td>
+          <button class="btn btn-xs btn-primary" onclick="openMeritModal('${p.nokp}')">Catat / Lihat</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('merit-search').addEventListener('input', renderRows);
+  document.getElementById('merit-filter-kelas').addEventListener('change', renderRows);
+  document.getElementById('merit-sort').addEventListener('change', renderRows);
+  renderRows();
+}
+
+async function refreshMeritDemerit() {
+  notify('Memuat semula data...', 'info');
+  await loadAllMeritDemerit();
+  renderMeritDemerit();
+  notify('Data dikemaskini!', 'success');
+}
+
+// ================================================================
+// MODAL: CATAT / LIHAT MERIT-DEMERIT SEORANG PELAJAR
+// ================================================================
+function openMeritModal(nokp) {
+  const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+  if (!p) return;
+  const bio = biodataDB[nokp] || {};
+  const m = getMeritInfo(nokp);
+  const bersihClass = m.jumlahBersih > 0 ? 'gred-A' : m.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
+
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal" style="max-width:600px">
+        <div class="modal-header">
+          <h3>Merit / Demerit — ${p.nama.split(' ').slice(0,3).join(' ')}</h3>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          ${renderAvatar(48, p.nama, bio.gambar||null)}
+          <div>
+            <div style="font-size:13px;font-weight:600">${p.nama}</div>
+            <div style="font-size:11px;color:var(--text-secondary)">${p.kelas} | ${p.agiliran}</div>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-bottom:16px">
+          <div class="stat-card"><div class="label">Merit</div><div class="value gred-A">+${m.jumlahMerit}</div></div>
+          <div class="stat-card"><div class="label">Demerit</div><div class="value gred-F">-${m.jumlahDemerit}</div></div>
+          <div class="stat-card"><div class="label">Jumlah Bersih</div><div class="value ${bersihClass}">${m.jumlahBersih > 0 ? '+' : ''}${m.jumlahBersih}</div></div>
+        </div>
+
+        <!-- Form tambah rekod baru -->
+        <div style="background:var(--bg);border-radius:var(--radius);padding:14px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">Catat Rekod Baru</div>
+          <div class="grid-2" style="gap:10px;margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label>Jenis</label>
+              <select id="merit-jenis" onchange="updateKategoriOptions()">
+                <option value="Merit">Merit (+)</option>
+                <option value="Demerit">Demerit (-)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Kategori</label>
+              <select id="merit-kategori"></select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Nota (pilihan)</label>
+            <input type="text" id="merit-nota" placeholder="cth: Hadir 15 minit awal pada 12/6/2026"/>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="submitMeritDemerit('${nokp}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Tambah Rekod
+          </button>
+        </div>
+
+        <!-- Sejarah rekod -->
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Sejarah Rekod (${m.records.length})</div>
+        <div style="max-height:240px;overflow-y:auto">
+          ${m.records.length === 0 ? `<div class="empty-state" style="padding:24px"><div class="icon">📋</div><p>Belum ada rekod merit/demerit.</p></div>` :
+          m.records.map(r => `
+            <div class="mark-summary-row" style="align-items:flex-start">
+              <span class="badge ${r.jenis==='Merit'?'badge-green':'badge-red'}" style="flex-shrink:0">${r.jenis==='Merit'?'+':'-'}${r.mata}</span>
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:500">${r.kategori}</div>
+                ${r.nota ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${r.nota}</div>` : ''}
+                <div style="font-size:10px;color:var(--text-secondary);margin-top:2px">${r.tarikh} — ${r.dicatatOleh}</div>
+              </div>
+              <button class="modal-close" style="width:24px;height:24px;font-size:13px;flex-shrink:0" onclick="hapusMeritDemerit('${r.id}','${nokp}')" title="Padam">🗑</button>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  updateKategoriOptions();
+}
+
+function updateKategoriOptions() {
+  const jenis = document.getElementById('merit-jenis').value;
+  const kategoriSel = document.getElementById('merit-kategori');
+  const kategoriObj = jenis === 'Merit' ? KATEGORI_MERIT : KATEGORI_DEMERIT;
+  const sign = jenis === 'Merit' ? '+' : '-';
+  kategoriSel.innerHTML = Object.entries(kategoriObj).map(([k,v]) =>
+    `<option value="${k}">${k} (${sign}${v})</option>`
+  ).join('');
+}
+
+async function submitMeritDemerit(nokp) {
+  const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+  const jenis = document.getElementById('merit-jenis').value;
+  const kategori = document.getElementById('merit-kategori').value;
+  const nota = document.getElementById('merit-nota').value.trim();
+
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try {
+    const result = await callGASPost('saveMeritDemerit', {
+      nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
+      jenis, kategori, nota,
+      dicatatOleh: currentUser?.nama || ''
+    });
+
+    if (result?.ok) {
+      notify(result.message || 'Rekod disimpan!', 'success');
+      await loadAllMeritDemerit();
+      openMeritModal(nokp); // refresh modal dengan data terbaru
+    } else {
+      notify('Ralat: ' + (result?.error || 'Gagal simpan'), 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Tambah Rekod';
+    }
+  } catch (e) {
+    notify('Ralat: ' + e.message, 'error');
+    btn.disabled = false;
+  }
+}
+
+async function hapusMeritDemerit(id, nokp) {
+  if (!confirm('Padam rekod ini?')) return;
+  const result = await callGASPost('deleteMeritDemerit', { id });
+  if (result?.ok) {
+    notify('Rekod dipadam.', 'success');
+    await loadAllMeritDemerit();
+    openMeritModal(nokp);
+  } else {
+    notify('Ralat: ' + (result?.error || 'Gagal padam'), 'error');
+  }
+}
+
+// ================================================================
 // SCREEN: PELAJAR — BIODATA (FIX 1 + FIX 3)
 // ================================================================
 function renderPelajarBiodata() {
   const p = currentPelajar;
   const bio = biodataDB[p.nokp] || {};
   const gambarUrl = bio.gambar || null;
+  const merit = getMeritInfo(p.nokp);
+  const bersihClass = merit.jumlahBersih > 0 ? 'gred-A' : merit.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
 
   document.getElementById('main-content').innerHTML = `
     <div class="grid-2">
@@ -1657,6 +1959,13 @@ function renderPelajarBiodata() {
         <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
         <div class="info-row"><div class="info-label">Kelas</div><div class="info-value">${p.kelas}</div></div>
         <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
+        <hr class="divider">
+        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Merit / Demerit</div>
+        <div class="grid-3" style="gap:8px">
+          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Merit</div><div class="value gred-A" style="font-size:16px">+${merit.jumlahMerit}</div></div>
+          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Demerit</div><div class="value gred-F" style="font-size:16px">-${merit.jumlahDemerit}</div></div>
+          <div class="stat-card" style="padding:10px"><div class="label" style="font-size:10px">Bersih</div><div class="value ${bersihClass}" style="font-size:16px">${merit.jumlahBersih>0?'+':''}${merit.jumlahBersih}</div></div>
+        </div>
       </div>
 
       <div class="card">
