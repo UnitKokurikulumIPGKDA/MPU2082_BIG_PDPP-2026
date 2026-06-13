@@ -977,30 +977,37 @@ async function uploadGambarKeDrive(file, nokp) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async function(e) {
-      const base64Data = e.target.result; // full data URL: data:image/jpeg;base64,...
+      const base64Data = e.target.result;
       const base64 = base64Data.split(',')[1];
       const mimeType = file.type || 'image/jpeg';
       const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
       const fileName = 'gambar_' + nokp + '_' + Date.now() + '.' + ext;
 
       try {
-        const result = await callGASPost('uploadGambar', {
-          base64, mimeType, fileName,
-          folderId: DRIVE_FOLDER_ID,
-          nokp
-        });
+        // Hantar setiap field BERASINGAN dalam FormData
+        // JANGAN masukkan base64 dalam JSON.stringify — terlalu besar, GAS akan potong data
+        const body = new FormData();
+        body.append('action', 'uploadGambar');
+        body.append('base64', base64);
+        body.append('mimeType', mimeType);
+        body.append('fileName', fileName);
+        body.append('nokp', nokp);
+
+        const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
+        const text = await resp.text();
+        let result = null;
+        try { result = JSON.parse(text); }
+        catch { const m = text.match(/\{[\s\S]*\}/); if (m) result = JSON.parse(m[0]); }
 
         if (result?.ok && result.url) {
-          // GAS return direct view URL dari Drive
           resolve(result.url);
         } else {
-          // Fallback: simpan base64 terus (kekal dalam session)
-          console.warn('Upload ke Drive gagal, guna base64:', result?.error);
-          resolve(base64Data);
+          console.warn('Upload ke Drive gagal:', result?.error);
+          resolve(''); // kembalikan kosong — jangan simpan base64 dalam sheet
         }
       } catch (err) {
         console.warn('Upload exception:', err);
-        resolve(base64Data); // fallback base64
+        resolve('');
       }
     };
     reader.onerror = () => reject(new Error('Gagal membaca fail gambar'));
