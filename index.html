@@ -1756,18 +1756,14 @@ const KATEGORI_DEMERIT = {
 // Cache: { nokp: { jumlahMerit, jumlahDemerit, jumlahBersih, records: [...] } }
 let meritDB = {};
 
-// Normalkan NOKP — padStart 12 digit supaya '010114...' dan '10114...' dipadankan
-function normNokp(v) { return v.toString().trim().padStart(12, '0'); }
-
 // Muat semua rekod merit/demerit dan kumpul ikut nokp
 async function loadAllMeritDemerit() {
   const res = await callGAS('getAllMeritDemerit');
   meritDB = {};
   if (res?.ok && res.data) {
     res.data.forEach(r => {
-      const key = normNokp(r.nokp); // normalkan kunci supaya '0' hadapan seragam
-      if (!meritDB[key]) meritDB[key] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
-      const bucket = meritDB[key];
+      if (!meritDB[r.nokp]) meritDB[r.nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+      const bucket = meritDB[r.nokp];
       if (r.jenis === 'Merit') bucket.jumlahMerit += r.mata;
       else bucket.jumlahDemerit += r.mata;
       bucket.records.push(r);
@@ -1783,7 +1779,7 @@ async function loadAllMeritDemerit() {
 }
 
 function getMeritInfo(nokp) {
-  return meritDB[normNokp(nokp)] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+  return meritDB[nokp] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
 }
 
 // ================================================================
