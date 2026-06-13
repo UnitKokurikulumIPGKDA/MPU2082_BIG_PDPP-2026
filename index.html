@@ -984,19 +984,26 @@ async function uploadGambarKeDrive(file, nokp) {
       const fileName = 'gambar_' + nokp + '_' + Date.now() + '.' + ext;
 
       try {
-        const result = await callGASPost('uploadGambar', {
-          base64, mimeType, fileName,
-          folderId: DRIVE_FOLDER_ID,
-          nokp
-        });
+        // Hantar setiap field secara BERASINGAN dalam FormData
+        // (bukan dalam JSON payload) untuk elak had saiz GAS ~10KB per param
+        const body = new FormData();
+        body.append('action', 'uploadGambar');
+        body.append('base64', base64);
+        body.append('mimeType', mimeType);
+        body.append('fileName', fileName);
+        body.append('nokp', nokp);
+
+        const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
+        const text = await resp.text();
+        let result = null;
+        try { result = JSON.parse(text); }
+        catch { const m = text.match(/\{[\s\S]*\}/); if (m) result = JSON.parse(m[0]); }
 
         if (result?.ok && result.url) {
-          // GAS return direct view URL dari Drive
           resolve(result.url);
         } else {
-          // Fallback: simpan base64 terus (kekal dalam session)
-          console.warn('Upload ke Drive gagal, guna base64:', result?.error);
-          resolve(base64Data);
+          console.warn('Upload ke Drive gagal:', result?.error);
+          resolve(base64Data); // fallback base64
         }
       } catch (err) {
         console.warn('Upload exception:', err);
