@@ -600,7 +600,7 @@
         </svg>
       </div>
       <h1>Sistem Pemarkahan IPG</h1>
-      <p>MPU2082 — Tahun Akademik 2025/2026</p>
+      <p>MPU2082 — Tahun Akademik 2024/2025</p>
     </div>
 
     <div class="auth-tabs">
@@ -793,7 +793,9 @@ let pendingPhotoFile = null;    // File object untuk upload ke Drive
 // GOOGLE APPS SCRIPT API — GitHub Pages → GAS via fetch()
 // GAS mesti deploy sebagai "Anyone" dengan CORS support
 // ================================================================
-const GAS_URL = 'https://script.google.com/a/macros/ipgm.edu.my/s/AKfycbwnMyQiezYOhHI28KD-ozAoj9a5DuHiCN2zTrt3Nj-PqsXPV_rXhYKYmFXdjbG3UzH1yg/exec';
+// URL deployment baru (akaun Gmail peribadi hanifffaizalipgm@gmail.com)
+// Format /macros/s/.../exec ini WUJUD dan stabil — tiada isu redirect/CORS domain Workspace
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwOmepLHStW-wtPYVkO__FEF93UjuGd0j0T15Ix409XAQf-1RM8dUa-KpJNuBAh9mhV/exec';
 
 // ================================================================
 // HELPER: Panggil GAS via fetch (JSONP untuk elak CORS block)
@@ -836,37 +838,21 @@ async function callGASPost(action, payload = {}) {
   body.append('action', action);
   body.append('payload', JSON.stringify(payload));
 
-  // KAEDAH "no-cors": penyelesaian paling stabil untuk akaun domain
-  // Workspace (@ipgm.edu.my). Browser tetap MENGHANTAR request POST
-  // dan GAS tetap MENJALANKAN fungsi (data ditulis ke Sheet/Drive),
-  // tetapi kita tidak boleh membaca respons (sebab tiada header CORS
-  // dari Google). Jadi anggap berjaya jika tiada ralat rangkaian.
+  // URL deployment standard (/macros/s/.../exec) sokong CORS dengan
+  // betul (Access-Control-Allow-Origin: *), jadi kita boleh baca
+  // respons sebenar untuk memastikan save berjaya.
   try {
-    await fetch(GAS_URL, {
-      method: 'POST',
-      body,
-      mode: 'no-cors',
-      redirect: 'follow'
-    });
-    // Respons 'opaque' — tidak boleh dibaca, tapi request berjaya dihantar
-    return { ok: true, opaque: true };
-  } catch (e) {
-    console.warn('GAS POST (no-cors) gagal:', e.message);
-
-    // Fallback: cuba mode normal (untuk persekitaran yang support CORS)
-    try {
-      const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
-      const text = await resp.text();
-      try { return JSON.parse(text); }
-      catch {
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) return JSON.parse(match[0]);
-        return { ok: true, opaque: true };
-      }
-    } catch (e2) {
-      console.warn('GAS POST fallback gagal:', e2.message);
-      return { ok: false, error: e2.message };
+    const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
+    const text = await resp.text();
+    try { return JSON.parse(text); }
+    catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]);
+      return { ok: false, error: 'Respons bukan JSON' };
     }
+  } catch (e) {
+    console.warn('GAS POST gagal:', e.message);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -1994,30 +1980,21 @@ async function submitMeritDemerit(nokp) {
   btn.disabled = true;
   btn.textContent = 'Menyimpan...';
 
-  // Hantar ke GAS (no-cors — write tetap berjaya walau respons tak dibaca)
-  await callGASPost('saveMeritDemerit', {
+  const result = await callGASPost('saveMeritDemerit', {
     nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
     jenis, kategori, nota,
     dicatatOleh: currentUser?.nama || ''
   });
 
-  // OPTIMISTIC UPDATE: kemaskini meritDB tempatan serta-merta
-  // (kerana respons GAS sebenar tidak dapat dibaca akibat CORS)
-  const mata = jenis === 'Merit' ? (KATEGORI_MERIT[kategori] ?? 1) : (KATEGORI_DEMERIT[kategori] ?? 1);
-  if (!meritDB[nokp]) meritDB[nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
-  const bucket = meritDB[nokp];
-  if (jenis === 'Merit') bucket.jumlahMerit += mata;
-  else bucket.jumlahDemerit += mata;
-  bucket.jumlahBersih = parseFloat((bucket.jumlahMerit - bucket.jumlahDemerit).toFixed(1));
-  bucket.records.unshift({
-    id: 'local-' + Date.now(), tarikh: Utilities_formatNow(),
-    nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
-    jenis, kategori, mata, nota, dicatatOleh: currentUser?.nama || ''
-  });
-  try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
-
-  notify((jenis === 'Merit' ? 'Merit' : 'Demerit') + ' (' + (jenis==='Merit'?'+':'-') + mata + ') dicatat!', 'success');
-  openMeritModal(nokp); // refresh modal dengan data terkini
+  if (result?.ok) {
+    notify(result.message || 'Rekod disimpan!', 'success');
+    await loadAllMeritDemerit(); // muat semula dari Sheet — data sah & dikongsi semua peranti
+    openMeritModal(nokp);
+  } else {
+    notify('Ralat: ' + (result?.error || 'Gagal simpan ke Sheet'), 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Tambah Rekod';
+  }
 }
 
 // Format tarikh ringkas untuk rekod tempatan (dd/mm/yyyy hh:mm)
@@ -2030,26 +2007,14 @@ function Utilities_formatNow() {
 async function hapusMeritDemerit(id, nokp) {
   if (!confirm('Padam rekod ini?')) return;
 
-  // Hantar ke GAS (no-cors)
-  if (!id.startsWith('local-')) {
-    await callGASPost('deleteMeritDemerit', { id });
+  const result = await callGASPost('deleteMeritDemerit', { id });
+  if (result?.ok) {
+    notify('Rekod dipadam.', 'success');
+    await loadAllMeritDemerit();
+    openMeritModal(nokp);
+  } else {
+    notify('Ralat: ' + (result?.error || 'Gagal padam'), 'error');
   }
-
-  // OPTIMISTIC: buang dari meritDB tempatan serta-merta
-  const bucket = meritDB[nokp];
-  if (bucket) {
-    const idx = bucket.records.findIndex(r => r.id === id);
-    if (idx > -1) {
-      const removed = bucket.records.splice(idx, 1)[0];
-      if (removed.jenis === 'Merit') bucket.jumlahMerit -= removed.mata;
-      else bucket.jumlahDemerit -= removed.mata;
-      bucket.jumlahBersih = parseFloat((bucket.jumlahMerit - bucket.jumlahDemerit).toFixed(1));
-      try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
-    }
-  }
-
-  notify('Rekod dipadam.', 'success');
-  openMeritModal(nokp);
 }
 
 // ================================================================
