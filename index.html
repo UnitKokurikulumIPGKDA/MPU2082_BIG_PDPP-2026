@@ -599,8 +599,8 @@
           <path d="M2 12l10 5 10-5"/>
         </svg>
       </div>
-      <h1>Sistem Pemarkahan IPG</h1>
-      <p>MPU2082 — Tahun Akademik 2024/2025</p>
+      <h1>e-BINA INSAN GURU</h1>
+      <p>MPU2082 — Tahun Akademik 2025/2026</p>
     </div>
 
     <div class="auth-tabs">
@@ -802,32 +802,22 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbwOmepLHStW-wtPYVkO__FE
 // GAS tidak support CORS dari luar domain — guna URL param + callback
 // ================================================================
 async function callGAS(action, payload = {}) {
+  // GET + query string — berfungsi dengan URL standard /macros/s/.../exec
+  // (URL ini TIDAK redirect, jadi query string kekal utuh)
   try {
-    // PENTING: guna POST (FormData) bukan GET — kerana URL berformat
-    // /a/macros/[domain]/s/.../exec akan STRIP query string (?action=...)
-    // semasa redirect ke googleusercontent.com bagi domain Workspace.
-    // Body POST tidak terjejas oleh masalah ini.
-    const body = new FormData();
-    body.append('action', action);
-    body.append('payload', JSON.stringify(payload));
-
-    const resp = await fetch(GAS_URL, {
-      method: 'POST',
-      body,
-      redirect: 'follow'
-    });
-
+    const url = GAS_URL + '?action=' + encodeURIComponent(action)
+              + '&payload=' + encodeURIComponent(JSON.stringify(payload));
+    const resp = await fetch(url, { method: 'GET', redirect: 'follow' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const text = await resp.text();
-    try {
-      return JSON.parse(text);
-    } catch {
+    try { return JSON.parse(text); }
+    catch {
       const match = text.match(/\{[\s\S]*\}/);
       if (match) return JSON.parse(match[0]);
       throw new Error('Response bukan JSON');
     }
   } catch (e) {
-    console.warn('GAS fetch gagal:', e.message);
+    console.warn('callGAS GET gagal:', e.message);
     return null;
   }
 }
@@ -977,37 +967,30 @@ async function uploadGambarKeDrive(file, nokp) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async function(e) {
-      const base64Data = e.target.result;
+      const base64Data = e.target.result; // full data URL: data:image/jpeg;base64,...
       const base64 = base64Data.split(',')[1];
       const mimeType = file.type || 'image/jpeg';
       const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
       const fileName = 'gambar_' + nokp + '_' + Date.now() + '.' + ext;
 
       try {
-        // Hantar setiap field BERASINGAN dalam FormData
-        // JANGAN masukkan base64 dalam JSON.stringify — terlalu besar, GAS akan potong data
-        const body = new FormData();
-        body.append('action', 'uploadGambar');
-        body.append('base64', base64);
-        body.append('mimeType', mimeType);
-        body.append('fileName', fileName);
-        body.append('nokp', nokp);
-
-        const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
-        const text = await resp.text();
-        let result = null;
-        try { result = JSON.parse(text); }
-        catch { const m = text.match(/\{[\s\S]*\}/); if (m) result = JSON.parse(m[0]); }
+        const result = await callGASPost('uploadGambar', {
+          base64, mimeType, fileName,
+          folderId: DRIVE_FOLDER_ID,
+          nokp
+        });
 
         if (result?.ok && result.url) {
+          // GAS return direct view URL dari Drive
           resolve(result.url);
         } else {
-          console.warn('Upload ke Drive gagal:', result?.error);
-          resolve(''); // kembalikan kosong — jangan simpan base64 dalam sheet
+          // Fallback: simpan base64 terus (kekal dalam session)
+          console.warn('Upload ke Drive gagal, guna base64:', result?.error);
+          resolve(base64Data);
         }
       } catch (err) {
         console.warn('Upload exception:', err);
-        resolve('');
+        resolve(base64Data); // fallback base64
       }
     };
     reader.onerror = () => reject(new Error('Gagal membaca fail gambar'));
@@ -1764,13 +1747,20 @@ const KATEGORI_DEMERIT = {
 let meritDB = {};
 
 // Muat semua rekod merit/demerit dan kumpul ikut nokp
+// Buang '0' di hadapan untuk padanan toleran (cth "010114030523" <-> "10114030523")
+function stripLeadingZero(nokp) {
+  return nokp.toString().replace(/^0+/, '');
+}
+
 async function loadAllMeritDemerit() {
   const res = await callGAS('getAllMeritDemerit');
   meritDB = {};
   if (res?.ok && res.data) {
+    console.log('[Merit] Jumlah rekod dari Sheet:', res.data.length);
     res.data.forEach(r => {
-      if (!meritDB[r.nokp]) meritDB[r.nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
-      const bucket = meritDB[r.nokp];
+      const key = stripLeadingZero(r.nokp);
+      if (!meritDB[key]) meritDB[key] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+      const bucket = meritDB[key];
       if (r.jenis === 'Merit') bucket.jumlahMerit += r.mata;
       else bucket.jumlahDemerit += r.mata;
       bucket.records.push(r);
@@ -1779,14 +1769,17 @@ async function loadAllMeritDemerit() {
       b.jumlahBersih = parseFloat((b.jumlahMerit - b.jumlahDemerit).toFixed(1));
       b.records.sort((a,b2) => b2.id.localeCompare(a.id));
     });
+    console.log('[Merit] Kunci pelajar dalam meritDB:', Object.keys(meritDB));
     try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
   } else {
+    console.warn('[Merit] getAllMeritDemerit gagal:', res);
     try { const c = sessionStorage.getItem('ipg_merit'); if (c) meritDB = JSON.parse(c); } catch(e) {}
   }
 }
 
 function getMeritInfo(nokp) {
-  return meritDB[nokp] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+  const key = stripLeadingZero(nokp);
+  return meritDB[key] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
 }
 
 // ================================================================
