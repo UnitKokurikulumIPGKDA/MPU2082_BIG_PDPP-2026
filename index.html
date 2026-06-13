@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>e-BINA INSAN GURU — MPU2082</title>
+<title>Sistem Pemarkahan IPG — MPU2082</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
@@ -599,8 +599,8 @@
           <path d="M2 12l10 5 10-5"/>
         </svg>
       </div>
-      <h1>e-BINA INSAN GURU</h1>
-      <p>MPU2082 — Tahun Akademik 2025/2026</p>
+      <h1>Sistem Pemarkahan IPG</h1>
+      <p>MPU2082 — Tahun Akademik 2024/2025</p>
     </div>
 
     <div class="auth-tabs">
@@ -984,26 +984,19 @@ async function uploadGambarKeDrive(file, nokp) {
       const fileName = 'gambar_' + nokp + '_' + Date.now() + '.' + ext;
 
       try {
-        // Hantar setiap field secara BERASINGAN dalam FormData
-        // (bukan dalam JSON payload) untuk elak had saiz GAS ~10KB per param
-        const body = new FormData();
-        body.append('action', 'uploadGambar');
-        body.append('base64', base64);
-        body.append('mimeType', mimeType);
-        body.append('fileName', fileName);
-        body.append('nokp', nokp);
-
-        const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
-        const text = await resp.text();
-        let result = null;
-        try { result = JSON.parse(text); }
-        catch { const m = text.match(/\{[\s\S]*\}/); if (m) result = JSON.parse(m[0]); }
+        const result = await callGASPost('uploadGambar', {
+          base64, mimeType, fileName,
+          folderId: DRIVE_FOLDER_ID,
+          nokp
+        });
 
         if (result?.ok && result.url) {
+          // GAS return direct view URL dari Drive
           resolve(result.url);
         } else {
-          console.warn('Upload ke Drive gagal:', result?.error);
-          resolve(base64Data); // fallback base64
+          // Fallback: simpan base64 terus (kekal dalam session)
+          console.warn('Upload ke Drive gagal, guna base64:', result?.error);
+          resolve(base64Data);
         }
       } catch (err) {
         console.warn('Upload exception:', err);
@@ -1763,14 +1756,18 @@ const KATEGORI_DEMERIT = {
 // Cache: { nokp: { jumlahMerit, jumlahDemerit, jumlahBersih, records: [...] } }
 let meritDB = {};
 
+// Normalkan NOKP — padStart 12 digit supaya '010114...' dan '10114...' dipadankan
+function normNokp(v) { return v.toString().trim().padStart(12, '0'); }
+
 // Muat semua rekod merit/demerit dan kumpul ikut nokp
 async function loadAllMeritDemerit() {
   const res = await callGAS('getAllMeritDemerit');
   meritDB = {};
   if (res?.ok && res.data) {
     res.data.forEach(r => {
-      if (!meritDB[r.nokp]) meritDB[r.nokp] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
-      const bucket = meritDB[r.nokp];
+      const key = normNokp(r.nokp); // normalkan kunci supaya '0' hadapan seragam
+      if (!meritDB[key]) meritDB[key] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+      const bucket = meritDB[key];
       if (r.jenis === 'Merit') bucket.jumlahMerit += r.mata;
       else bucket.jumlahDemerit += r.mata;
       bucket.records.push(r);
@@ -1786,7 +1783,7 @@ async function loadAllMeritDemerit() {
 }
 
 function getMeritInfo(nokp) {
-  return meritDB[nokp] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+  return meritDB[normNokp(nokp)] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
 }
 
 // ================================================================
