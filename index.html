@@ -567,6 +567,26 @@
     to { transform: translateY(0); opacity: 1; }
   }
 
+  /* LOADING OVERLAY */
+  #loading-overlay {
+    position: fixed; inset: 0;
+    background: rgba(255,255,255,0.92);
+    z-index: 9998;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px;
+  }
+  #loading-overlay.hidden { display: none !important; }
+  .loading-spinner-lg {
+    width: 44px; height: 44px;
+    border: 4px solid var(--primary-light);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+  }
+  #loading-msg { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+  #loading-sub { font-size: 12px; color: var(--gray-400); }
+
   /* FIX 1: Upload progress */
   .upload-progress {
     display: none;
@@ -599,8 +619,8 @@
           <path d="M2 12l10 5 10-5"/>
         </svg>
       </div>
-      <h1>e-BINA INSAN GURU</h1>
-      <p>MPU2082 — Tahun Akademik 2025/2026</p>
+      <h1>Sistem Pemarkahan IPG</h1>
+      <p>MPU2082 — Tahun Akademik 2024/2025</p>
     </div>
 
     <div class="auth-tabs">
@@ -664,6 +684,13 @@
 
 <div id="modal-container"></div>
 <div id="notification-bar" style="display:none" class="notification"></div>
+
+<!-- LOADING OVERLAY — tunjuk semasa log masuk / muat data -->
+<div id="loading-overlay" class="hidden">
+  <div class="loading-spinner-lg"></div>
+  <div id="loading-msg">Sedang memuat data...</div>
+  <div id="loading-sub">Sila tunggu sebentar</div>
+</div>
 
 <script>
 // ================================================================
@@ -909,10 +936,18 @@ async function savePeerData(rating) {
 // ================================================================
 // MUAT DATA DARI SHEETS SEMASA LOGIN
 // ================================================================
+// Helper: fetch dengan timeout
+async function fetchWithTimeout(action, payload = {}, timeoutMs = 12000) {
+  return Promise.race([
+    callGAS(action, payload),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: ' + action)), timeoutMs))
+  ]);
+}
+
 async function loadDataFromSheets() {
   try {
     // Muat satu persatu untuk elak timeout
-    const markahRes = await callGAS('getAllMarkah');
+    const markahRes = await fetchWithTimeout('getAllMarkah');
     if (markahRes?.ok && markahRes.data) {
       markahDB = {};
       markahRes.data.forEach(m => {
@@ -932,7 +967,7 @@ async function loadDataFromSheets() {
       try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
     }
 
-    const biodataRes = await callGAS('getAllBiodata');
+    const biodataRes = await fetchWithTimeout('getAllBiodata');
     if (biodataRes?.ok && biodataRes.data) {
       biodataDB = {};
       biodataRes.data.forEach(b => {
@@ -947,7 +982,7 @@ async function loadDataFromSheets() {
       try { sessionStorage.setItem('ipg_biodata', JSON.stringify(biodataDB)); } catch(e) {}
     }
 
-    const peerRes = await callGAS('getPeerRatings', {});
+    const peerRes = await fetchWithTimeout('getPeerRatings', {});
     if (peerRes?.ok && peerRes.data) {
       peerRatingsDB = peerRes.data;
       try { sessionStorage.setItem('ipg_peer', JSON.stringify(peerRatingsDB)); } catch(e) {}
@@ -1100,6 +1135,16 @@ function renderAvatar(size, nama, gambarUrl, extraStyle = '') {
 // ================================================================
 // NOTIFICATIONS
 // ================================================================
+function showLoading(msg = 'Sedang memuat data...', sub = 'Sila tunggu sebentar') {
+  const el = document.getElementById('loading-overlay');
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading-sub').textContent = sub;
+  el.classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
 function notify(msg, type = 'info') {
   const bar = document.getElementById('notification-bar');
   bar.textContent = msg;
@@ -1129,6 +1174,7 @@ function showAuthError(msg) {
 async function doLogin() {
   document.getElementById('auth-error').classList.add('hidden');
   const isP = !document.getElementById('auth-pensyarah-form').classList.contains('hidden');
+  const loginBtn = document.querySelector('#screen-auth .btn-primary');
 
   if (isP) {
     const email = document.getElementById('auth-email').value.trim();
@@ -1137,9 +1183,22 @@ async function doLogin() {
     if (!user) { showAuthError('E-mel atau kata laluan tidak sah.'); return; }
     currentUser = user;
     currentRole = 'pensyarah';
-    await loadDataFromSheets();
-    await loadAllMeritDemerit();
+
+    loginBtn.disabled = true; loginBtn.textContent = 'Mengesahkan...';
+    showLoading('Sedang muat data pensyarah...', 'Markah, biodata & merit — sila tunggu');
+    try {
+      await loadDataFromSheets();
+      showLoading('Memuatkan rekod merit/demerit...', 'Hampir selesai...');
+      await loadAllMeritDemerit();
+    } catch(e) {
+      console.warn('Load gagal, guna cache:', e);
+      loadFromSession();
+    } finally {
+      hideLoading();
+      loginBtn.disabled = false; loginBtn.textContent = 'Log Masuk';
+    }
     startPensyarahApp();
+
   } else {
     const nokp = document.getElementById('auth-nokp').value.trim();
     const pelajar = PELAJAR_LIST.find(p => p.nokp === nokp);
@@ -1147,8 +1206,18 @@ async function doLogin() {
     currentUser = pelajar;
     currentRole = 'pelajar';
     currentPelajar = pelajar;
-    await loadDataFromSheets();
-    await loadAllMeritDemerit();
+
+    loginBtn.disabled = true; loginBtn.textContent = 'Mengesahkan...';
+    showLoading('Sedang muat profil pelajar...', 'Sila tunggu sebentar');
+    try {
+      await loadDataFromSheets();
+    } catch(e) {
+      console.warn('Load gagal, guna cache:', e);
+      loadFromSession();
+    } finally {
+      hideLoading();
+      loginBtn.disabled = false; loginBtn.textContent = 'Log Masuk';
+    }
     startPelajarApp();
   }
 }
