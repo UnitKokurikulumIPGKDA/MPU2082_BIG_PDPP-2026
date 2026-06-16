@@ -2280,6 +2280,7 @@ async function saveBiodataPelajar() {
       document.getElementById('upload-status-text').textContent = 'Mengompres & memuat naik gambar...';
 
       gambarUrl = await uploadGambarKeDrive(pendingPhotoFile, currentPelajar.nokp);
+      console.log('[Biodata] gambarUrl selepas upload:', gambarUrl?.substring(0, 80));
 
       document.getElementById('upload-progress').style.display = 'none';
       if (gambarUrl && !gambarUrl.startsWith('data:')) {
@@ -2303,7 +2304,8 @@ async function saveBiodataPelajar() {
     };
 
     // Simpan ke Sheets via GAS
-    await saveBiodataData(nokp);
+    const saveResult = await saveBiodataData(nokp);
+    console.log('[Biodata] Hasil simpan ke Sheet:', saveResult);
 
     // Update sidebar dengan gambar baru
     buildSidebarPelajar();
