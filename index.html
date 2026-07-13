@@ -84,7 +84,6 @@
     gap: 8px;
   }
 
-  /* FIX 3: Avatar bulat - object-fit cover + object-position center */
   .avatar {
     width: 32px;
     height: 32px;
@@ -476,7 +475,6 @@
   .text-center { text-align: center; }
   .p-0 { padding: 0; }
 
-  /* FIX 3: Photo upload dengan crop position */
   .photo-upload-area {
     border: 2px dashed var(--border);
     border-radius: var(--radius);
@@ -488,7 +486,6 @@
   }
   .photo-upload-area:hover { border-color: var(--primary-mid); background: var(--primary-light); }
 
-  /* FIX 3: preview gambar dalam upload area */
   .preview-circle-wrap {
     width: 90px;
     height: 90px;
@@ -567,7 +564,6 @@
     to { transform: translateY(0); opacity: 1; }
   }
 
-  /* LOADING OVERLAY */
   #loading-overlay {
     position: fixed; inset: 0;
     background: rgba(255,255,255,0.92);
@@ -587,7 +583,6 @@
   #loading-msg { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
   #loading-sub { font-size: 12px; color: var(--gray-400); }
 
-  /* FIX 1: Upload progress */
   .upload-progress {
     display: none;
     align-items: center;
@@ -685,7 +680,6 @@
 <div id="modal-container"></div>
 <div id="notification-bar" style="display:none" class="notification"></div>
 
-<!-- LOADING OVERLAY — tunjuk semasa log masuk / muat data -->
 <div id="loading-overlay" class="hidden">
   <div class="loading-spinner-lg"></div>
   <div id="loading-msg">Sedang memuat data...</div>
@@ -694,12 +688,13 @@
 
 <script>
 // ================================================================
-// GOOGLE DRIVE FOLDER untuk upload gambar
+// GOOGLE DRIVE FOLDER & APP URL
 // ================================================================
 const DRIVE_FOLDER_ID = '1Zroy1IAumIRzAS2Sfuz5Bh-B8VmtFzz5';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwOmepLHStW-wtPYVkO__FEF93UjuGd0j0T15Ix409XAQf-1RM8dUa-KpJNuBAh9mhV/exec';
 
 // ================================================================
-// DATA STORE
+// DATA STORE & STATE
 // ================================================================
 const PENSYARAH_DATA = [
   {email:"hanifffaizal@gmail.com", password:"790704025409", nama:"HANIFF FAIZAL", role:"pensyarah"},
@@ -794,43 +789,32 @@ MPU2082_076,ONG SIEW HOON,960619075160,2025182390149,PMO,P`;
 
 const PELAJAR_LIST = RAW_PELAJAR.trim().split('\n').map(line => {
   const [bil, nama, nokp, agiliran, kelas, jantina] = line.split(',');
-  return { bil, nama, nokp, agiliran, kelas, jantina };
+  return { bil, nama, nokp: nokp.trim(), agiliran, kelas, jantina };
 });
 
-// ================================================================
-// STATE
-// ================================================================
 let currentUser = null;
 let currentRole = null;
 let currentScreen = null;
 let markahDB = {};
-let biodataDB = {};   // { nokp: { jawatan, kumpulan, noDlmKumpulan, alahan, ubat, notel, gambar (URL Drive) } }
+let biodataDB = {};
 let peerRatingsDB = [];
+let meritDB = {};
 let currentPelajar = null;
-let pendingPhotoBase64 = null;  // base64 sementara sebelum upload
-let pendingPhotoFile = null;    // File object untuk upload ke Drive
+let pendingPhotoBase64 = null;
+let pendingPhotoFile = null;
 
 // ================================================================
-// FIX 1: SIMPAN KE GOOGLE APPS SCRIPT (bukan localStorage)
-// Semua data disimpan ke Google Sheets via Apps Script
-// Gambar diupload ke Google Drive
+// LALUAN FUNGSI PENORMALAN NOKP (Penyelesaian Utama)
 // ================================================================
+function cleanNokp(nokp) {
+  if (nokp == null) return '';
+  return nokp.toString().trim().replace(/^0+/, '');
+}
 
 // ================================================================
-// GOOGLE APPS SCRIPT API — GitHub Pages → GAS via fetch()
-// GAS mesti deploy sebagai "Anyone" dengan CORS support
-// ================================================================
-// URL deployment baru (akaun Gmail peribadi hanifffaizalipgm@gmail.com)
-// Format /macros/s/.../exec ini WUJUD dan stabil — tiada isu redirect/CORS domain Workspace
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwOmepLHStW-wtPYVkO__FEF93UjuGd0j0T15Ix409XAQf-1RM8dUa-KpJNuBAh9mhV/exec';
-
-// ================================================================
-// HELPER: Panggil GAS via fetch (JSONP untuk elak CORS block)
-// GAS tidak support CORS dari luar domain — guna URL param + callback
+// GOOGLE APPS SCRIPT CORE CALLS
 // ================================================================
 async function callGAS(action, payload = {}) {
-  // GET + query string — berfungsi dengan URL standard /macros/s/.../exec
-  // (URL ini TIDAK redirect, jadi query string kekal utuh)
   try {
     const url = GAS_URL + '?action=' + encodeURIComponent(action)
               + '&payload=' + encodeURIComponent(JSON.stringify(payload));
@@ -849,15 +833,10 @@ async function callGAS(action, payload = {}) {
   }
 }
 
-// POST untuk data yang besar (markah batch, biodata, gambar)
 async function callGASPost(action, payload = {}) {
   const body = new FormData();
   body.append('action', action);
   body.append('payload', JSON.stringify(payload));
-
-  // URL deployment standard (/macros/s/.../exec) sokong CORS dengan
-  // betul (Access-Control-Allow-Origin: *), jadi kita boleh baca
-  // respons sebenar untuk memastikan save berjaya.
   try {
     const resp = await fetch(GAS_URL, { method: 'POST', body, redirect: 'follow' });
     const text = await resp.text();
@@ -874,18 +853,15 @@ async function callGASPost(action, payload = {}) {
 }
 
 // ================================================================
-// SIMPAN DATA KE SHEETS
+// UTAP DATA SYNC via NORMALIZED KEYS
 // ================================================================
 async function saveMarkahData() {
-  // Cache tempatan dulu
   try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
-
-  // Hantar ke GAS — batch semua sekaligus
-  const rows = Object.entries(markahDB).map(([nokp, m]) => {
-    const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+  const rows = Object.entries(markahDB).map(([nokpKey, m]) => {
+    const p = PELAJAR_LIST.find(x => cleanNokp(x.nokp) === cleanNokp(nokpKey));
     if (!p) return null;
     return {
-      nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
+      nokp: p.nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
       kuiz: m.kuiz ?? null, hp4: m.hp4 ?? null, hp5: m.hp5 ?? null,
       hp3: m.hp3 ?? null, hp8: m.hp8 ?? null,
       dikemaskiniOleh: currentUser?.nama || ''
@@ -899,27 +875,20 @@ async function saveMarkahData() {
 
 async function saveBiodataData(nokpSingle) {
   try { sessionStorage.setItem('ipg_biodata', JSON.stringify(biodataDB)); } catch(e) {}
-  const b = biodataDB[nokpSingle];
+  const key = cleanNokp(nokpSingle);
+  const b = biodataDB[key];
   if (!b) return;
-  const p = PELAJAR_LIST.find(x => x.nokp === nokpSingle);
-
-  // Jangan simpan base64 data URL ke sheet (terlalu besar, sel Sheet max 50KB)
-  // Hanya simpan URL Drive (https://...) atau kosong
+  const p = PELAJAR_LIST.find(x => cleanNokp(x.nokp) === key);
   const urlUntukSheet = (b.gambar && !b.gambar.startsWith('data:')) ? b.gambar : '';
 
-  const result = await callGASPost('saveBiodata', {
-    nokp: nokpSingle, nama: p?.nama || '', kelas: p?.kelas || '',
+  return await callGASPost('saveBiodata', {
+    nokp: p?.nokp || nokpSingle, nama: p?.nama || '', kelas: p?.kelas || '',
     agiliran: p?.agiliran || '',
     jawatan: b.jawatan || '', kumpulan: b.kumpulan || '',
     noDlmKumpulan: b.noDlmKumpulan || '', alahan: b.alahan || '',
     ubat: b.ubat || '', noTelKecemasan: b.notel || '',
     urlGambar: urlUntukSheet
   });
-
-  if (!result?.ok) {
-    console.warn('[Biodata] Simpan ke Sheet gagal:', result?.error);
-  }
-  return result;
 }
 
 async function savePeerData(rating) {
@@ -933,11 +902,7 @@ async function savePeerData(rating) {
   });
 }
 
-// ================================================================
-// MUAT DATA DARI SHEETS SEMASA LOGIN
-// ================================================================
-// Helper: fetch dengan timeout
-async function fetchWithTimeout(action, payload = {}, timeoutMs = 12000) {
+async function fetchWithTimeout(action, payload = {}, timeoutMs = 15000) {
   return Promise.race([
     callGAS(action, payload),
     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: ' + action)), timeoutMs))
@@ -946,23 +911,20 @@ async function fetchWithTimeout(action, payload = {}, timeoutMs = 12000) {
 
 async function loadDataFromSheets() {
   try {
-    // Muat satu persatu untuk elak timeout
     const markahRes = await fetchWithTimeout('getAllMarkah');
     if (markahRes?.ok && markahRes.data) {
       markahDB = {};
       markahRes.data.forEach(m => {
         if (!m.nokp) return;
-        markahDB[m.nokp] = {
+        markahDB[cleanNokp(m.nokp)] = {
           kuiz: m.kuiz != null ? parseFloat(m.kuiz) : undefined,
           hp4:  m.hp4  != null ? parseFloat(m.hp4)  : undefined,
           hp5:  m.hp5  != null ? parseFloat(m.hp5)  : undefined,
           hp3:  m.hp3  != null ? parseFloat(m.hp3)  : undefined,
           hp8:  m.hp8  != null ? parseFloat(m.hp8)  : undefined,
         };
-        // Buang kunci undefined
-        Object.keys(markahDB[m.nokp]).forEach(k => {
-          if (markahDB[m.nokp][k] === undefined) delete markahDB[m.nokp][k];
-        });
+        const activeObj = markahDB[cleanNokp(m.nokp)];
+        Object.keys(activeObj).forEach(k => { if (activeObj[k] === undefined) delete activeObj[k]; });
       });
       try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
     }
@@ -972,7 +934,7 @@ async function loadDataFromSheets() {
       biodataDB = {};
       biodataRes.data.forEach(b => {
         if (!b.nokp) return;
-        biodataDB[b.nokp] = {
+        biodataDB[cleanNokp(b.nokp)] = {
           jawatan: b.jawatan || '', kumpulan: b.kumpulan || '',
           noDlmKumpulan: b.noDlmKumpulan || '', alahan: b.alahan || '',
           ubat: b.ubat || '', notel: b.noTelKecemasan || '',
@@ -988,7 +950,7 @@ async function loadDataFromSheets() {
       try { sessionStorage.setItem('ipg_peer', JSON.stringify(peerRatingsDB)); } catch(e) {}
     }
   } catch (e) {
-    console.warn('Load dari Sheets gagal, guna cache:', e);
+    console.warn('Gagal memuat turun data, menggunakan sistem cache tempatan.', e);
     loadFromSession();
   }
 }
@@ -1004,22 +966,13 @@ function loadFromSession() {
   } catch(e) {}
 }
 
-// ================================================================
-// UPLOAD GAMBAR KE GOOGLE DRIVE via GAS POST
-// Gambar dihantar sebagai base64 string
-// ================================================================
 async function uploadGambarKeDrive(file, nokp) {
   return new Promise((resolve, reject) => {
-
-    // LANGKAH 1: Kompres/resize gambar menggunakan canvas sebelum hantar
-    // Ini kurangkan saiz dari ~2MB ke ~100-200KB supaya GAS boleh terima
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
 
     img.onload = async function() {
       URL.revokeObjectURL(objectUrl);
-
-      // Saiz maksimum 600px (cukup untuk gambar profil)
       const MAX_SIZE = 600;
       let w = img.width, h = img.height;
       if (w > MAX_SIZE || h > MAX_SIZE) {
@@ -1027,55 +980,39 @@ async function uploadGambarKeDrive(file, nokp) {
         else { w = Math.round(w * MAX_SIZE / h); h = MAX_SIZE; }
       }
 
-      // Lukis semula ke canvas dengan saiz kecil
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, w, h);
 
-      // Kompres sebagai JPEG kualiti 0.75 (saiz ~50-150KB)
       const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
       const base64 = compressedBase64.split(',')[1];
       const mimeType = 'image/jpeg';
-      const fileName = 'gambar_' + nokp + '_' + Date.now() + '.jpg';
-
-      console.log('[Upload] Saiz gambar dikompres:', Math.round(base64.length * 0.75 / 1024), 'KB');
+      const fileName = 'gambar_' + cleanNokp(nokp) + '_' + Date.now() + '.jpg';
 
       try {
-        const result = await callGASPost('uploadGambar', {
-          base64, mimeType, fileName,
-          folderId: DRIVE_FOLDER_ID,
-          nokp
-        });
-
+        const result = await callGASPost('uploadGambar', { base64, mimeType, fileName, nokp });
         if (result?.ok && result.url) {
-          console.log('[Upload] Berjaya ke Drive:', result.url);
           resolve(result.url);
         } else {
-          // Fallback: simpan base64 yang dikompres (lebih kecil, boleh kekal dalam sheet)
-          console.warn('[Upload] Drive gagal, guna base64 kompres:', result?.error);
           resolve(compressedBase64);
         }
       } catch (err) {
-        console.warn('[Upload] Exception:', err);
         resolve(compressedBase64);
       }
     };
-
-    img.onerror = () => reject(new Error('Gagal memuatkan gambar untuk kompres'));
+    img.onerror = () => reject(new Error('Gagal memuat imej profil.'));
     img.src = objectUrl;
   });
 }
 
 // ================================================================
-// GRADE CALCULATION
+// MATEMATIK PENGIRAAN PB & GRED
 // ================================================================
-// Had maksimum setiap komponen (markah dimasukkan terus, tiada wajaran)
-// Kuiz max 10 | HP4 max 30 | HP5 max 30 | HP3 max 15 | HP8 max 15 | Jumlah max 100
 const MARK_MAX = { kuiz: 10, hp4: 30, hp5: 30, hp3: 15, hp8: 15 };
 
 function calcMarkah(nokp) {
-  const m = markahDB[nokp] || {};
+  const m = markahDB[cleanNokp(nokp)] || {};
   const kuiz = Math.min(parseFloat(m.kuiz) || 0, MARK_MAX.kuiz);
   const hp4  = Math.min(parseFloat(m.hp4)  || 0, MARK_MAX.hp4);
   const hp5  = Math.min(parseFloat(m.hp5)  || 0, MARK_MAX.hp5);
@@ -1122,7 +1059,6 @@ function avatarBg(nama) {
   return { bg: colors[idx], text: textColors[idx] };
 }
 
-// FIX 3: Render avatar dengan gambar yang betul crop
 function renderAvatar(size, nama, gambarUrl, extraStyle = '') {
   const ini = getInitials(nama);
   const { bg, text } = avatarBg(nama);
@@ -1133,7 +1069,7 @@ function renderAvatar(size, nama, gambarUrl, extraStyle = '') {
 }
 
 // ================================================================
-// NOTIFICATIONS
+// NOTIFIKASI LAYAR
 // ================================================================
 function showLoading(msg = 'Sedang memuat data...', sub = 'Sila tunggu sebentar') {
   const el = document.getElementById('loading-overlay');
@@ -1155,7 +1091,7 @@ function notify(msg, type = 'info') {
 }
 
 // ================================================================
-// AUTH
+// SISTEM MULA LOG MASUK / LOGIN
 // ================================================================
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach((t, i) => {
@@ -1185,13 +1121,11 @@ async function doLogin() {
     currentRole = 'pensyarah';
 
     loginBtn.disabled = true; loginBtn.textContent = 'Mengesahkan...';
-    showLoading('Sedang muat data pensyarah...', 'Markah, biodata & merit — sila tunggu');
+    showLoading('Sedang memuat pangkalan data utama...', 'Sila tunggu sebentar...');
     try {
       await loadDataFromSheets();
-      showLoading('Memuatkan rekod merit/demerit...', 'Hampir selesai...');
       await loadAllMeritDemerit();
     } catch(e) {
-      console.warn('Load gagal, guna cache:', e);
       loadFromSession();
     } finally {
       hideLoading();
@@ -1200,19 +1134,18 @@ async function doLogin() {
     startPensyarahApp();
 
   } else {
-    const nokp = document.getElementById('auth-nokp').value.trim();
-    const pelajar = PELAJAR_LIST.find(p => p.nokp === nokp);
-    if (!pelajar) { showAuthError('Nombor kad pengenalan tidak dijumpai.'); return; }
+    const nokpInput = document.getElementById('auth-nokp').value.trim();
+    const pelajar = PELAJAR_LIST.find(p => cleanNokp(p.nokp) === cleanNokp(nokpInput));
+    if (!pelajar) { showAuthError('Nombor kad pengenalan tidak dijumpai dalam senarai kohort.'); return; }
     currentUser = pelajar;
     currentRole = 'pelajar';
     currentPelajar = pelajar;
 
     loginBtn.disabled = true; loginBtn.textContent = 'Mengesahkan...';
-    showLoading('Sedang muat profil pelajar...', 'Sila tunggu sebentar');
+    showLoading('Sedang memuat profil individu...', 'Sila tunggu sebentar');
     try {
       await loadDataFromSheets();
     } catch(e) {
-      console.warn('Load gagal, guna cache:', e);
       loadFromSession();
     } finally {
       hideLoading();
@@ -1233,9 +1166,6 @@ function doLogout() {
   document.getElementById('auth-error').classList.add('hidden');
 }
 
-// ================================================================
-// APP STARTS
-// ================================================================
 function startPensyarahApp() {
   document.getElementById('screen-auth').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -1251,11 +1181,11 @@ function startPelajarApp() {
 }
 
 // ================================================================
-// SIDEBARS
+// SIDEBAR MENUS
 // ================================================================
 function buildSidebarPensyarah() {
   const u = currentUser;
-  const bio = biodataDB[u.nokp] || {};
+  const bio = biodataDB[cleanNokp(u.nokp)] || {};
   document.getElementById('sidebar-user-info').innerHTML = `
     ${renderAvatar(32, u.nama, bio.gambar || null)}
     <div class="sidebar-user-info">
@@ -1279,7 +1209,7 @@ function buildSidebarPensyarah() {
 
 function buildSidebarPelajar() {
   const u = currentUser;
-  const bio = biodataDB[u.nokp] || {};
+  const bio = biodataDB[cleanNokp(u.nokp)] || {};
   document.getElementById('sidebar-user-info').innerHTML = `
     ${renderAvatar(32, u.nama, bio.gambar || null)}
     <div class="sidebar-user-info">
@@ -1287,7 +1217,6 @@ function buildSidebarPelajar() {
       <div class="role">${u.kelas} — ${u.agiliran}</div>
     </div>`;
 
-  // FIX 2: Pelajar HANYA ada 2 menu — Profil & Penilaian Rakan
   const nav = [
     { icon: userIcon(), label: 'Profil & Biodata', screen: 'pelajar-biodata' },
     { icon: starIcon(), label: 'Penilaian Rakan', screen: 'pelajar-peer' },
@@ -1298,9 +1227,6 @@ function buildSidebarPelajar() {
     </div>`).join('');
 }
 
-// ================================================================
-// NAVIGATION
-// ================================================================
 function navigateTo(screen) {
   currentScreen = screen;
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -1315,7 +1241,7 @@ function navigateTo(screen) {
     'peer-review-view': 'Penilaian Rakan Sebaya',
     'merit-demerit': 'Merit / Demerit Pelajar',
     'pelajar-biodata': 'Profil & Biodata',
-    'pelajar-peer': 'Penilaian Rakan',
+    'pelajar-peer': 'Penilaian Rakan Sebaya',
   };
   document.getElementById('page-title').textContent = titles[screen] || screen;
 
@@ -1332,9 +1258,6 @@ function navigateTo(screen) {
   if (screens[screen]) screens[screen]();
 }
 
-// ================================================================
-// ICONS
-// ================================================================
 const ic = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${d}</svg>`;
 const homeIcon = () => ic('<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>');
 const usersIcon = () => ic('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>');
@@ -1345,11 +1268,11 @@ const userIcon = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
 const awardIcon = () => ic('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>');
 
 // ================================================================
-// SCREEN: DASHBOARD (Pensyarah)
+// DASHBOARD VIEW
 // ================================================================
 function renderDashboard() {
   const total = PELAJAR_LIST.length;
-  const dah_markah = PELAJAR_LIST.filter(p => markahDB[p.nokp] && Object.keys(markahDB[p.nokp]).length > 0).length;
+  const dah_markah = PELAJAR_LIST.filter(p => markahDB[cleanNokp(p.nokp)] && Object.keys(markahDB[cleanNokp(p.nokp)]).length > 0).length;
   const peratus_lengkap = Math.round((dah_markah / total) * 100);
 
   const kelas = {};
@@ -1357,13 +1280,10 @@ function renderDashboard() {
 
   let sumMark = 0, countMark = 0;
   PELAJAR_LIST.forEach(p => {
-    if (markahDB[p.nokp]) { const c = calcMarkah(p.nokp); sumMark += c.jumlah; countMark++; }
+    if (markahDB[cleanNokp(p.nokp)]) { const c = calcMarkah(p.nokp); sumMark += c.jumlah; countMark++; }
   });
   const avg = countMark > 0 ? (sumMark / countMark).toFixed(1) : '—';
 
-  // ============================================================
-  // SISIHAN PIAWAI (Standard Deviation) — Jumlah Markah
-  // ============================================================
   function hitungSP(values) {
     const n = values.length;
     if (n === 0) return 0;
@@ -1373,33 +1293,31 @@ function renderDashboard() {
   }
 
   const jumlahMarkahList = PELAJAR_LIST
-    .filter(p => markahDB[p.nokp])
+    .filter(p => markahDB[cleanNokp(p.nokp)])
     .map(p => calcMarkah(p.nokp).jumlah);
   const spKeseluruhan = parseFloat(hitungSP(jumlahMarkahList).toFixed(2));
 
-  // SP mengikut kelas
   const kelasList = ['PBKK','PIMK','PMO'];
   const spKelas = {};
   kelasList.forEach(k => {
-    const vals = PELAJAR_LIST.filter(p => p.kelas === k && markahDB[p.nokp]).map(p => calcMarkah(p.nokp).jumlah);
+    const vals = PELAJAR_LIST.filter(p => p.kelas === k && markahDB[cleanNokp(p.nokp)]).map(p => calcMarkah(p.nokp).jumlah);
     spKelas[k] = parseFloat(hitungSP(vals).toFixed(2));
   });
 
-  // SP mengikut komponen (Kuiz, HP4, HP5, HP3, HP8)
   const komponenKeys = ['kuiz','hp4','hp5','hp3','hp8'];
   const komponenLabels = ['Kuiz','HP4','HP5','HP3','HP8'];
   const spKomponen = komponenKeys.map(k => {
-    const vals = PELAJAR_LIST.filter(p => markahDB[p.nokp]).map(p => calcMarkah(p.nokp)[k]);
+    const vals = PELAJAR_LIST.filter(p => markahDB[cleanNokp(p.nokp)]).map(p => calcMarkah(p.nokp)[k]);
     return parseFloat(hitungSP(vals).toFixed(2));
   });
 
   const gradeDist = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0 };
   PELAJAR_LIST.forEach(p => {
-    if (!markahDB[p.nokp]) return;
+    if (!markahDB[cleanNokp(p.nokp)]) return;
     const c = calcMarkah(p.nokp);
     const g = getGred(c.jumlah).gred;
     const cat = g[0];
-    gradeDist[cat] = (gradeDist[cat] || 0) + 1;
+    if(gradeDist.hasOwnProperty(cat)) gradeDist[cat]++;
   });
 
   document.getElementById('main-content').innerHTML = `
@@ -1422,7 +1340,7 @@ function renderDashboard() {
       <div class="stat-card">
         <div class="label">Sisihan Piawai (σ)</div>
         <div class="value">${countMark > 0 ? spKeseluruhan : '—'}</div>
-        <div class="sub">jumlah markah keseluruhan</div>
+        <div class="sub">Keseluruhan</div>
       </div>
       <div class="stat-card">
         <div class="label">Penilaian Rakan</div>
@@ -1439,7 +1357,7 @@ function renderDashboard() {
       </div>
       <div class="card">
         <div class="card-header">
-          <div><div class="card-title">Pelajar Mengikut Kelas</div><div class="card-subtitle">Taburan kelas semasa</div></div>
+          <div><div class="card-title">Pelajar Mengikut Kelas</div><div class="card-subtitle">Taburan kohort semasa</div></div>
         </div>
         <canvas id="chart-kelas" height="180"></canvas>
       </div>
@@ -1447,33 +1365,22 @@ function renderDashboard() {
     <div class="grid-2">
       <div class="card">
         <div class="card-header">
-          <div><div class="card-title">Sisihan Piawai — Setiap Komponen</div><div class="card-subtitle">Kuiz, HP4, HP5, HP3, HP8 (σ markah mentah)</div></div>
+          <div><div class="card-title">Sisihan Piawai — Setiap Komponen</div><div class="card-subtitle">σ markah mentah</div></div>
         </div>
         <canvas id="chart-sp-komponen" height="180"></canvas>
       </div>
       <div class="card">
         <div class="card-header">
-          <div><div class="card-title">Sisihan Piawai — Jumlah Markah</div><div class="card-subtitle">Keseluruhan vs setiap kelas</div></div>
+          <div><div class="card-title">Sisihan Piawai — Jumlah Markah</div><div class="card-subtitle">Keseluruhan vs Kelas</div></div>
         </div>
         <canvas id="chart-sp-kelas" height="180"></canvas>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Kemajuan Pemarkahan</div>
-        <div class="flex items-center gap-8">
-          <span class="badge badge-blue">${dah_markah}/${total} pelajar</span>
-          <button class="btn btn-sm btn-primary" onclick="navigateTo('markah-entry')">Rekod Markah</button>
-        </div>
-      </div>
-      <div style="margin-bottom:8px;font-size:13px;color:var(--text-secondary)">${peratus_lengkap}% selesai</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${peratus_lengkap}%;background:var(--primary)"></div></div>
     </div>`;
 
   setTimeout(() => {
     new Chart(document.getElementById('chart-grade'), {
       type: 'bar',
-      data: { labels: ['A','B','C','D','F'], datasets: [{ data: Object.values(gradeDist), backgroundColor: ['#639922','#378ADD','#EF9F27','#E24B4A','#A32D2D'], borderRadius: 6, borderSkipped: false }] },
+      data: { labels: ['A','B','C','D','F'], datasets: [{ data: Object.values(gradeDist), backgroundColor: ['#639922','#378ADD','#EF9F27','#E24B4A','#A32D2D'], borderRadius: 6 }] },
       options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
     });
     new Chart(document.getElementById('chart-kelas'), {
@@ -1481,42 +1388,21 @@ function renderDashboard() {
       data: { labels: Object.keys(kelas), datasets: [{ data: Object.values(kelas), backgroundColor: ['#378ADD','#1D9E75','#D85A30'], borderWidth: 2 }] },
       options: { plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
     });
-
-    // Bar chart: Sisihan Piawai setiap komponen (Kuiz, HP4, HP5, HP3, HP8)
     new Chart(document.getElementById('chart-sp-komponen'), {
       type: 'bar',
-      data: {
-        labels: komponenLabels,
-        datasets: [{ label: 'σ', data: spKomponen, backgroundColor: '#534AB7', borderRadius: 6, borderSkipped: false }]
-      },
-      options: {
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'σ = ' + c.parsed.y } } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Sisihan Piawai' } } }
-      }
+      data: { labels: komponenLabels, datasets: [{ label: 'σ', data: spKomponen, backgroundColor: '#534AB7', borderRadius: 6 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
-
-    // Bar chart: Sisihan Piawai jumlah markah - Keseluruhan vs Kelas
     new Chart(document.getElementById('chart-sp-kelas'), {
       type: 'bar',
-      data: {
-        labels: ['Keseluruhan', ...kelasList],
-        datasets: [{
-          label: 'σ',
-          data: [spKeseluruhan, ...kelasList.map(k => spKelas[k])],
-          backgroundColor: ['#185FA5','#378ADD','#1D9E75','#D85A30'],
-          borderRadius: 6, borderSkipped: false
-        }]
-      },
-      options: {
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'σ = ' + c.parsed.y } } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Sisihan Piawai (Jumlah Markah)' } } }
-      }
+      data: { labels: ['Keseluruhan', ...kelasList], datasets: [{ label: 'σ', data: [spKeseluruhan, ...kelasList.map(k => spKelas[k])], backgroundColor: ['#185FA5','#378ADD','#1D9E75','#D85A30'], borderRadius: 6 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
     });
   }, 100);
 }
 
 // ================================================================
-// SCREEN: SENARAI PELAJAR
+// SENARAI PELAJAR VIEW
 // ================================================================
 function renderPelajarList() {
   document.getElementById('main-content').innerHTML = `
@@ -1544,16 +1430,16 @@ function renderPelajarList() {
     const q = document.getElementById('search-pelajar').value.toLowerCase();
     const kls = document.getElementById('filter-kelas').value;
     const filtered = PELAJAR_LIST.filter(p => {
-      return (!q || p.nama.toLowerCase().includes(q) || p.agiliran.toLowerCase().includes(q)) &&
-             (kls === 'Semua' || p.kelas === kls);
+      return (!q || p.nama.toLowerCase().includes(q) || p.agiliran.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls);
     });
     document.getElementById('pelajar-count').textContent = filtered.length + ' pelajar';
     document.getElementById('pelajar-tbody').innerHTML = filtered.map((p, i) => {
       const calc = calcMarkah(p.nokp);
-      const hasMark = !!markahDB[p.nokp];
+      const key = cleanNokp(p.nokp);
+      const hasMark = !!markahDB[key];
       const { gred } = hasMark ? getGred(calc.jumlah) : { gred: '—' };
-      const bio = biodataDB[p.nokp] || {};
-      const hasBio = bio.jawatan !== undefined;
+      const bio = biodataDB[key] || {};
+      const hasBio = bio.jawatan !== undefined && bio.jawatan !== '';
       return `<tr>
         <td class="text-muted text-sm">${i+1}</td>
         <td>
@@ -1579,7 +1465,7 @@ function renderPelajarList() {
 }
 
 // ================================================================
-// SCREEN: REKOD MARKAH
+// REKOD MARKAH VIEW (Pemasukan Pukal / Batch Markah)
 // ================================================================
 function renderMarkahEntry() {
   document.getElementById('main-content').innerHTML = `
@@ -1587,19 +1473,16 @@ function renderMarkahEntry() {
       <div class="card-title" style="margin-bottom:10px">Komponen Pentaksiran Berterusan — MPU2082</div>
       <div class="grid-3">
         <div style="background:var(--primary-light);border-radius:8px;padding:12px">
-          <div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK1 — Kuiz</div>
+          <div style="font-size:11px;font-weight:600;color:var(--primary);text-transform:uppercase;margin-bottom:4px">HPK1 — Kuiz</div>
           <div style="font-size:20px;font-weight:700;color:var(--primary)">10%</div>
-          <div style="font-size:12px;color:#185FA5;margin-top:2px">HP1</div>
         </div>
         <div style="background:var(--success-light);border-radius:8px;padding:12px">
-          <div style="font-size:11px;font-weight:600;color:var(--success);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK2 — Ujian Amali I</div>
+          <div style="font-size:11px;font-weight:600;color:var(--success);text-transform:uppercase;margin-bottom:4px">HPK2 — Amali I</div>
           <div style="font-size:20px;font-weight:700;color:var(--success)">60%</div>
-          <div style="font-size:12px;color:var(--success);margin-top:2px">HP4 (30%) + HP5 (30%)</div>
         </div>
         <div style="background:var(--warning-light);border-radius:8px;padding:12px">
-          <div style="font-size:11px;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">HPK3 — Ujian Amali II</div>
+          <div style="font-size:11px;font-weight:600;color:var(--warning);text-transform:uppercase;margin-bottom:4px">HPK3 — Amali II</div>
           <div style="font-size:20px;font-weight:700;color:var(--warning)">30%</div>
-          <div style="font-size:12px;color:var(--warning);margin-top:2px">HP3 (15%) + HP8 (15%)</div>
         </div>
       </div>
     </div>
@@ -1609,8 +1492,7 @@ function renderMarkahEntry() {
         <select id="mark-filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
           <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
         </select>
-        <button class="btn btn-success btn-sm" onclick="saveAllMarkah()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <button class="btn btn-success btn-sm" onclick="saveAllMarkah(event)">
           Simpan Semua
         </button>
       </div>
@@ -1619,11 +1501,11 @@ function renderMarkahEntry() {
           <thead>
             <tr>
               <th>Nama</th><th>Kelas</th>
-              <th>Kuiz <span style="font-weight:600;font-size:11px;color:var(--primary)">/10</span></th>
-              <th>HP4 <span style="font-weight:600;font-size:11px;color:var(--success)">/30</span></th>
-              <th>HP5 <span style="font-weight:600;font-size:11px;color:var(--success)">/30</span></th>
-              <th>HP3 <span style="font-weight:600;font-size:11px;color:var(--warning)">/15</span></th>
-              <th>HP8 <span style="font-weight:600;font-size:11px;color:var(--warning)">/15</span></th>
+              <th>Kuiz <span style="font-size:11px;color:var(--primary)">/10</span></th>
+              <th>HP4 <span style="font-size:11px;color:var(--success)">/30</span></th>
+              <th>HP5 <span style="font-size:11px;color:var(--success)">/30</span></th>
+              <th>HP3 <span style="font-size:11px;color:var(--warning)">/15</span></th>
+              <th>HP8 <span style="font-size:11px;color:var(--warning)">/15</span></th>
               <th>Jumlah</th><th>Gred</th>
             </tr>
           </thead>
@@ -1635,13 +1517,13 @@ function renderMarkahEntry() {
   function renderMarkahRows() {
     const q = document.getElementById('mark-search').value.toLowerCase();
     const kls = document.getElementById('mark-filter-kelas').value;
-    const filtered = PELAJAR_LIST.filter(p =>
-      (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls)
-    );
+    const filtered = PELAJAR_LIST.filter(p => (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls));
+
     document.getElementById('markah-tbody').innerHTML = filtered.map(p => {
-      const m = markahDB[p.nokp] || {};
+      const key = cleanNokp(p.nokp);
+      const m = markahDB[key] || {};
       const calc = calcMarkah(p.nokp);
-      const hasMark = !!markahDB[p.nokp];
+      const hasMark = !!markahDB[key];
       const { gred } = hasMark ? getGred(calc.jumlah) : { gred: '—' };
       return `<tr>
         <td><div style="font-size:12px;font-weight:500">${p.nama}</div><div style="font-size:10px;color:var(--text-secondary)">${p.agiliran}</div></td>
@@ -1650,8 +1532,8 @@ function renderMarkahEntry() {
         <td><input class="mark-input" data-nokp="${p.nokp}" data-key="${k}" data-max="${mx}" type="number" min="0" max="${mx}" step="0.5"
           value="${m[k] !== undefined ? m[k] : ''}" placeholder="—"
           oninput="clampInput(this)" onchange="updateMarkahLive('${p.nokp}')"/></td>`).join('')}
-        <td><strong id="total-${p.nokp}">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong></td>
-        <td><span id="gred-${p.nokp}" class="${gredClass(gred)}">${gred}</span></td>
+        <td><strong id="total-${key}">${hasMark ? calc.jumlah.toFixed(1) : '—'}</strong></td>
+        <td><span id="gred-${key}" class="${gredClass(gred)}">${gred}</span></td>
       </tr>`;
     }).join('');
   }
@@ -1661,7 +1543,6 @@ function renderMarkahEntry() {
   renderMarkahRows();
 }
 
-// Clamp input mengikut had komponen masing-masing
 function clampInput(inp) {
   const mx = parseFloat(inp.dataset.max) || 100;
   let v = parseFloat(inp.value);
@@ -1672,6 +1553,7 @@ function clampInput(inp) {
 }
 
 function updateMarkahLive(nokp) {
+  const key = cleanNokp(nokp);
   const inputs = document.querySelectorAll(`.mark-input[data-nokp="${nokp}"]`);
   const m = {};
   inputs.forEach(inp => {
@@ -1679,46 +1561,47 @@ function updateMarkahLive(nokp) {
     const mx = parseFloat(inp.dataset.max) || 100;
     if (!isNaN(v)) m[inp.dataset.key] = Math.min(mx, Math.max(0, v));
   });
-  markahDB[nokp] = m;
+  markahDB[key] = m;
   const calc = calcMarkah(nokp);
   const { gred } = getGred(calc.jumlah);
-  const totalEl = document.getElementById('total-' + nokp);
-  const gredEl = document.getElementById('gred-' + nokp);
-  if (totalEl) totalEl.textContent = calc.jumlah.toFixed(2);
+  const totalEl = document.getElementById('total-' + key);
+  const gredEl = document.getElementById('gred-' + key);
+  if (totalEl) totalEl.textContent = calc.jumlah.toFixed(1);
   if (gredEl) { gredEl.textContent = gred; gredEl.className = gredClass(gred); }
 }
 
-async function saveAllMarkah() {
+async function saveAllMarkah(event) {
   const btn = event?.target;
   if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
 
   const inputs = document.querySelectorAll('.mark-input');
   inputs.forEach(inp => {
     const v = parseFloat(inp.value);
+    const key = cleanNokp(inp.dataset.nokp);
     if (!isNaN(v)) {
-      if (!markahDB[inp.dataset.nokp]) markahDB[inp.dataset.nokp] = {};
+      if (!markahDB[key]) markahDB[key] = {};
       const mx = parseFloat(inp.dataset.max) || 100;
-      markahDB[inp.dataset.nokp][inp.dataset.key] = Math.min(mx, Math.max(0, v));
+      markahDB[key][inp.dataset.key] = Math.min(mx, Math.max(0, v));
     }
   });
 
   try {
     await saveMarkahData();
-    notify('Markah berjaya disimpan ke Sheets!', 'success');
+    notify('Markah berjaya disimpan ke Google Sheets!', 'success');
   } catch(e) {
-    notify('Markah disimpan tempatan (semak sambungan)', 'info');
+    notify('Markah gagal dihantar ke pelayan. Disimpan dalam cache.', 'info');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Simpan Semua'; }
   }
 }
 
 // ================================================================
-// SCREEN: LAPORAN
+// ANALISIS & LAPORAN VIEW
 // ================================================================
 function renderLaporan() {
   const computed = PELAJAR_LIST.map(p => {
     const c = calcMarkah(p.nokp);
-    return { ...p, ...c, hasMark: !!markahDB[p.nokp] };
+    return { ...p, ...c, hasMark: !!markahDB[cleanNokp(p.nokp)] };
   });
   const withMark = computed.filter(p => p.hasMark);
   const gradeOrder = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
@@ -1742,20 +1625,19 @@ function renderLaporan() {
         ${['PBKK','PIMK','PMO'].map(k=>`<div class="stat-card"><div class="label">${k}</div><div class="value">${kelasStats[k].n}</div><div class="sub">Purata: ${kelasStats[k].avg}</div></div>`).join('')}
       </div>
       <div class="grid-2">
-        <div class="card"><div class="card-title" style="margin-bottom:12px">Taburan Gred</div><canvas id="chart-lap-grade" height="220"></canvas></div>
-        <div class="card"><div class="card-title" style="margin-bottom:12px">Taburan Markah</div><canvas id="chart-lap-dist" height="220"></canvas></div>
+        <div class="card"><div class="card-title" style="margin-bottom:12px">Taburan Gred kohort</div><canvas id="chart-lap-grade" height="220"></canvas></div>
+        <div class="card"><div class="card-title" style="margin-bottom:12px">Kecenderungan Markah</div><canvas id="chart-lap-dist" height="220"></canvas></div>
       </div>
-      <div class="card"><div class="card-title" style="margin-bottom:12px">Analisis Per Komponen</div><canvas id="chart-lap-comp" height="160"></canvas></div>
     </div>
     <div id="laporan-detail" class="hidden">
       <div class="card p-0">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>Nama</th><th>Kelas</th><th>Kuiz</th><th>HP4</th><th>HP5</th><th>HP3</th><th>HP8</th><th>HPK1</th><th>HPK2</th><th>HPK3</th><th>Jumlah</th><th>Gred</th></tr></thead>
+            <thead><tr><th>#</th><th>Nama</th><th>Kelas</th><th>Kuiz</th><th>HP4</th><th>HP5</th><th>HP3</th><th>HP8</th><th>Jumlah</th><th>Gred</th></tr></thead>
             <tbody>${computed.map((p,i)=>{
               const {gred}=p.hasMark?getGred(p.jumlah):{gred:'—'};
-              const m=markahDB[p.nokp]||{};
-              return `<tr><td class="text-muted">${i+1}</td><td style="font-size:12px;font-weight:500;max-width:180px">${p.nama}</td><td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td><td>${m.kuiz!==undefined?m.kuiz:'—'}</td><td>${m.hp4!==undefined?m.hp4:'—'}</td><td>${m.hp5!==undefined?m.hp5:'—'}</td><td>${m.hp3!==undefined?m.hp3:'—'}</td><td>${m.hp8!==undefined?m.hp8:'—'}</td><td>${p.hasMark?p.hpk1.toFixed(1):'—'}</td><td>${p.hasMark?p.hpk2.toFixed(1):'—'}</td><td>${p.hasMark?p.hpk3.toFixed(1):'—'}</td><td><strong>${p.hasMark?p.jumlah.toFixed(1):'—'}</strong></td><td><span class="${gredClass(gred)}">${gred}</span></td></tr>`;
+              const m=markahDB[cleanNokp(p.nokp)]||{};
+              return `<tr><td>${i+1}</td><td style="font-size:12px;font-weight:500">${p.nama}</td><td>${p.kelas}</td><td>${m.kuiz!==undefined?m.kuiz:'—'}</td><td>${m.hp4!==undefined?m.hp4:'—'}</td><td>${m.hp5!==undefined?m.hp5:'—'}</td><td>${m.hp3!==undefined?m.hp3:'—'}</td><td>${m.hp8!==undefined?m.hp8:'—'}</td><td><strong>${p.hasMark?p.jumlah.toFixed(1):'—'}</strong></td><td><span class="${gredClass(gred)}">${gred}</span></td></tr>`;
             }).join('')}</tbody>
           </table>
         </div>
@@ -1772,26 +1654,24 @@ function renderLaporan() {
   setTimeout(buildLaporanCharts, 100);
 
   function buildLaporanCharts() {
-    ['chart-lap-grade','chart-lap-dist','chart-lap-comp'].forEach(id=>{const c=Chart.getChart(id);if(c)c.destroy();});
+    ['chart-lap-grade','chart-lap-dist'].forEach(id=>{const c=Chart.getChart(id);if(c)c.destroy();});
     const gLabels = gradeOrder.filter(g=>gradeDist[g]>0);
-    new Chart(document.getElementById('chart-lap-grade'),{type:'bar',data:{labels:gLabels,datasets:[{label:'Pelajar',data:gLabels.map(g=>gradeDist[g]),backgroundColor:gLabels.map(g=>g.startsWith('A')?'#97C459':g.startsWith('B')?'#85B7EB':g.startsWith('C')?'#EF9F27':g.startsWith('D')?'#E24B4A':'#A32D2D'),borderRadius:5,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+    new Chart(document.getElementById('chart-lap-grade'),{type:'bar',data:{labels:gLabels,datasets:[{label:'Pelajar',data:gLabels.map(g=>gradeDist[g]),backgroundColor:'#378ADD',borderRadius:5}]},options:{plugins:{legend:{display:false}}}});
+    
     const buckets=Array(10).fill(0);
     withMark.forEach(p=>{buckets[Math.min(9,Math.floor(p.jumlah/10))]++;});
-    new Chart(document.getElementById('chart-lap-dist'),{type:'bar',data:{labels:['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'],datasets:[{label:'Pelajar',data:buckets,backgroundColor:'#378ADD',borderRadius:4,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
-    const compKeys=['k','hp4','hp5','hp3','hp8'],compLabels=['Kuiz','HP4','HP5','HP3','HP8'];
-    const compAvg=compKeys.map(k=>{const vals=withMark.map(p=>p[k]).filter(v=>v>0);return vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):0;});
-    new Chart(document.getElementById('chart-lap-comp'),{type:'bar',data:{labels:compLabels,datasets:[{label:'Purata',data:compAvg,backgroundColor:['#378ADD','#1D9E75','#1D9E75','#EF9F27','#EF9F27'],borderRadius:5,borderSkipped:false}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,max:100}}}});
+    new Chart(document.getElementById('chart-lap-dist'),{type:'bar',data:{labels:['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'],datasets:[{data:buckets,backgroundColor:'#1D9E75',borderRadius:4}]},options:{plugins:{legend:{display:false}}}});
   }
 }
 
 // ================================================================
-// SCREEN: PEER REVIEW (Pensyarah)
+// PENILAIAN RAKAN VIEW (PENSYARAH)
 // ================================================================
 function renderPeerReviewView() {
   document.getElementById('main-content').innerHTML = `
     <div class="card" style="margin-bottom:14px">
       <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
-        <div><div class="card-title">Penilaian Rakan Sebaya</div><div class="card-subtitle">Spider web — Kepimpinan, Kerjasama, Komunikasi, Komitmen, Sahsiah</div></div>
+        <div><div class="card-title">Penilaian Rakan Sebaya</div><div class="card-subtitle">Dimensi Kompetensi Sosial-Emosi</div></div>
         <select id="pr-filter" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
           <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
         </select>
@@ -1807,17 +1687,17 @@ function renderPeerReviewView() {
       const ratings = peerRatingsDB.filter(r=>r.Target_ID===p.agiliran);
       const avgDims = dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;});
       const avg = avgDims.reduce((a,b)=>a+b,0)/5;
-      const bio = biodataDB[p.nokp]||{};
+      const bio = biodataDB[cleanNokp(p.nokp)]||{};
       return `<div class="card" style="cursor:pointer" onclick="viewPeerDetail('${p.nokp}')">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
           ${renderAvatar(36, p.nama, bio.gambar||null)}
-          <div><div style="font-size:12px;font-weight:600">${p.nama.split(' ').slice(0,3).join(' ')}</div><div style="font-size:11px;color:var(--text-secondary)">${p.kelas} — ${ratings.length} penilaian</div></div>
+          <div><div style="font-size:12px;font-weight:600">${p.nama.split(' ').slice(0,3).join(' ')}</div><div style="font-size:11px;color:var(--text-secondary)">${p.kelas} — ${ratings.length} undian</div></div>
         </div>
-        <canvas id="spider-${p.nokp}" height="160"></canvas>
-        <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--text-secondary)">Purata: <strong>${avg.toFixed(1)}/5</strong></div>
+        <canvas id="spider-${cleanNokp(p.nokp)}" height="160"></canvas>
+        <div style="text-align:center;margin-top:6px;font-size:12px;color:var(--text-secondary)">Indeks Purata: <strong>${avg.toFixed(1)}/5</strong></div>
       </div>`;
     }).join('');
-    setTimeout(()=>{ filtered.forEach(p=>{ const ratings=peerRatingsDB.filter(r=>r.Target_ID===p.agiliran); const dims=['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah']; const avgDims=dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;}); buildSpider('spider-'+p.nokp,dims,avgDims); }); },50);
+    setTimeout(()=>{ filtered.forEach(p=>{ const ratings=peerRatingsDB.filter(r=>r.Target_ID===p.agiliran); const avgDims=dims.map(d=>{const vals=ratings.map(r=>parseFloat(r[d])).filter(v=>!isNaN(v));return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;}); buildSpider('spider-'+cleanNokp(p.nokp),dims,avgDims); }); },50);
   }
 
   document.getElementById('pr-filter').addEventListener('change', renderPeerCards);
@@ -1827,41 +1707,21 @@ function renderPeerReviewView() {
 function buildSpider(canvasId, labels, data) {
   const existing = Chart.getChart(canvasId); if(existing) existing.destroy();
   const el = document.getElementById(canvasId); if(!el) return;
-  new Chart(el,{type:'radar',data:{labels,datasets:[{data,fill:true,backgroundColor:'rgba(55,138,221,0.15)',borderColor:'#378ADD',pointBackgroundColor:'#378ADD',pointBorderColor:'#fff'}]},options:{scales:{r:{min:0,max:5,ticks:{stepSize:1,font:{size:9}},pointLabels:{font:{size:10}}}},plugins:{legend:{display:false}},responsive:true}});
+  new Chart(el,{type:'radar',data:{labels,datasets:[{data,fill:true,backgroundColor:'rgba(55,138,221,0.15)',borderColor:'#378ADD',pointBackgroundColor:'#378ADD'}]},options:{scales:{r:{min:0,max:5,ticks:{stepSize:1,font:{size:9}}}},plugins:{legend:{display:false}},responsive:true}});
 }
 
 // ================================================================
-// MERIT / DEMERIT — KONFIGURASI & STATE
+// MERIT / DEMERIT VIEW (PENSYARAH)
 // ================================================================
-const KATEGORI_MERIT = {
-  'Hadir Awal':  2,
-  'Aktif':       3,
-  'Membantu':    3,
-  'Kepimpinan':  5
-};
-const KATEGORI_DEMERIT = {
-  'Lewat':                 2,
-  'Tidak Hadir':           5,
-  'Tidak Siapkan Tugasan': 3,
-  'Salah Laku':            5
-};
-
-// Cache: { nokp: { jumlahMerit, jumlahDemerit, jumlahBersih, records: [...] } }
-let meritDB = {};
-
-// Muat semua rekod merit/demerit dan kumpul ikut nokp
-// Buang '0' di hadapan untuk padanan toleran (cth "010114030523" <-> "10114030523")
-function stripLeadingZero(nokp) {
-  return nokp.toString().replace(/^0+/, '');
-}
+const KATEGORI_MERIT = { 'Hadir Awal': 2, 'Aktif': 3, 'Membantu': 3, 'Kepimpinan': 5 };
+const KATEGORI_DEMERIT = { 'Lewat': 2, 'Tidak Hadir': 5, 'Tidak Siapkan Tugasan': 3, 'Salah Laku': 5 };
 
 async function loadAllMeritDemerit() {
   const res = await callGAS('getAllMeritDemerit');
   meritDB = {};
   if (res?.ok && res.data) {
-    console.log('[Merit] Jumlah rekod dari Sheet:', res.data.length);
     res.data.forEach(r => {
-      const key = stripLeadingZero(r.nokp);
+      const key = cleanNokp(r.nokp);
       if (!meritDB[key]) meritDB[key] = { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
       const bucket = meritDB[key];
       if (r.jenis === 'Merit') bucket.jumlahMerit += r.mata;
@@ -1872,357 +1732,192 @@ async function loadAllMeritDemerit() {
       b.jumlahBersih = parseFloat((b.jumlahMerit - b.jumlahDemerit).toFixed(1));
       b.records.sort((a,b2) => b2.id.localeCompare(a.id));
     });
-    console.log('[Merit] Kunci pelajar dalam meritDB:', Object.keys(meritDB));
     try { sessionStorage.setItem('ipg_merit', JSON.stringify(meritDB)); } catch(e) {}
-  } else {
-    console.warn('[Merit] getAllMeritDemerit gagal:', res);
-    try { const c = sessionStorage.getItem('ipg_merit'); if (c) meritDB = JSON.parse(c); } catch(e) {}
   }
 }
 
 function getMeritInfo(nokp) {
-  const key = stripLeadingZero(nokp);
-  return meritDB[key] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
+  return meritDB[cleanNokp(nokp)] || { jumlahMerit: 0, jumlahDemerit: 0, jumlahBersih: 0, records: [] };
 }
 
-// ================================================================
-// SCREEN: MERIT / DEMERIT (Pensyarah)
-// ================================================================
 function renderMeritDemerit() {
   document.getElementById('main-content').innerHTML = `
     <div class="card" style="margin-bottom:14px">
       <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
-        <div>
-          <div class="card-title">Merit / Demerit Pelajar</div>
-          <div class="card-subtitle">Kategori Merit: Hadir Awal (+2), Aktif (+3), Membantu (+3), Kepimpinan (+5) &nbsp;|&nbsp; Demerit: Lewat (-2), Tidak Hadir (-5), Tidak Siapkan Tugasan (-3), Salah Laku (-5)</div>
-        </div>
-        <button class="btn btn-sm" onclick="refreshMeritDemerit()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          Muat Semula
-        </button>
+        <div><div class="card-title">Pengurusan Merit & Demerit Kontinuum</div></div>
+        <button class="btn btn-sm" onclick="refreshMeritDemerit()">Muat Semula</button>
       </div>
     </div>
-
     <div class="card p-0">
       <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <input type="text" id="merit-search" placeholder="Cari nama pelajar..." style="flex:1;min-width:200px;padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;">
         <select id="merit-filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
           <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
         </select>
-        <select id="merit-sort" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
-          <option value="nama">Susun: Nama</option>
-          <option value="bersih_desc">Susun: Jumlah Bersih (Tinggi → Rendah)</option>
-          <option value="bersih_asc">Susun: Jumlah Bersih (Rendah → Tinggi)</option>
-        </select>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Nama</th><th>Kelas</th>
-              <th style="text-align:center">Merit</th>
-              <th style="text-align:center">Demerit</th>
-              <th style="text-align:center">Jumlah Bersih</th>
-              <th style="text-align:center">Rekod</th>
-              <th>Tindakan</th>
+              <th>Nama</th><th>Kelas</th><th>Merit</th><th>Demerit</th><th>Bersih</th><th>Rekod</th><th>Tindakan</th>
             </tr>
           </thead>
           <tbody id="merit-tbody"></tbody>
         </table>
       </div>
-    </div>
-  `;
+    </div>`;
 
   function renderRows() {
     const q = document.getElementById('merit-search').value.toLowerCase();
     const kls = document.getElementById('merit-filter-kelas').value;
-    const sortBy = document.getElementById('merit-sort').value;
-
-    let filtered = PELAJAR_LIST.filter(p =>
-      (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls)
-    );
-
-    filtered = filtered.map(p => ({ ...p, merit: getMeritInfo(p.nokp) }));
-
-    if (sortBy === 'bersih_desc') filtered.sort((a,b) => b.merit.jumlahBersih - a.merit.jumlahBersih);
-    else if (sortBy === 'bersih_asc') filtered.sort((a,b) => a.merit.jumlahBersih - b.merit.jumlahBersih);
-    else filtered.sort((a,b) => a.nama.localeCompare(b.nama));
+    const filtered = PELAJAR_LIST.filter(p => (!q || p.nama.toLowerCase().includes(q)) && (kls === 'Semua' || p.kelas === kls));
 
     document.getElementById('merit-tbody').innerHTML = filtered.map(p => {
-      const m = p.merit;
+      const m = getMeritInfo(p.nokp);
       const bersihClass = m.jumlahBersih > 0 ? 'gred-A' : m.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
-      const bio = biodataDB[p.nokp] || {};
+      const bio = biodataDB[cleanNokp(p.nokp)] || {};
       return `<tr>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            ${renderAvatar(28, p.nama, bio.gambar || null)}
-            <span class="fw-500" style="font-size:13px">${p.nama}</span>
-          </div>
-        </td>
-        <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
-        <td style="text-align:center"><span class="badge badge-green">+${m.jumlahMerit}</span></td>
-        <td style="text-align:center"><span class="badge badge-red">-${m.jumlahDemerit}</span></td>
-        <td style="text-align:center"><strong class="${bersihClass}" style="font-size:15px">${m.jumlahBersih > 0 ? '+' : ''}${m.jumlahBersih}</strong></td>
-        <td style="text-align:center"><span class="badge badge-gray">${m.records.length} rekod</span></td>
-        <td>
-          <button class="btn btn-xs btn-primary" onclick="openMeritModal('${p.nokp}')">Catat / Lihat</button>
-        </td>
+        <td><div style="display:flex;align-items:center;gap:8px">${renderAvatar(28, p.nama, bio.gambar || null)}<span>${p.nama}</span></div></td>
+        <td>${p.kelas}</td>
+        <td><span class="badge badge-green">+${m.jumlahMerit}</span></td>
+        <td><span class="badge badge-red">-${m.jumlahDemerit}</span></td>
+        <td><strong class="${bersihClass}">${m.jumlahBersih}</strong></td>
+        <td><span class="badge badge-gray">${m.records.length} unit</span></td>
+        <td><button class="btn btn-xs btn-primary" onclick="openMeritModal('${p.nokp}')">Lihat/Catat</button></td>
       </tr>`;
     }).join('');
   }
-
   document.getElementById('merit-search').addEventListener('input', renderRows);
   document.getElementById('merit-filter-kelas').addEventListener('change', renderRows);
-  document.getElementById('merit-sort').addEventListener('change', renderRows);
   renderRows();
 }
 
 async function refreshMeritDemerit() {
-  notify('Memuat semula data...', 'info');
+  showLoading('Mengemaskini sistem merit...', 'Menghubungi pangkalan data');
   await loadAllMeritDemerit();
+  hideLoading();
   renderMeritDemerit();
-  notify('Data dikemaskini!', 'success');
 }
 
-// ================================================================
-// MODAL: CATAT / LIHAT MERIT-DEMERIT SEORANG PELAJAR
-// ================================================================
 function openMeritModal(nokp) {
-  const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+  const p = PELAJAR_LIST.find(x => cleanNokp(x.nokp) === cleanNokp(nokp));
   if (!p) return;
-  const bio = biodataDB[nokp] || {};
   const m = getMeritInfo(nokp);
-  const bersihClass = m.jumlahBersih > 0 ? 'gred-A' : m.jumlahBersih < 0 ? 'gred-F' : 'text-muted';
+  const bio = biodataDB[cleanNokp(nokp)] || {};
 
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="modal" style="max-width:600px">
-        <div class="modal-header">
-          <h3>Merit / Demerit — ${p.nama.split(' ').slice(0,3).join(' ')}</h3>
-          <button class="modal-close" onclick="closeModal()">×</button>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-          ${renderAvatar(48, p.nama, bio.gambar||null)}
-          <div>
-            <div style="font-size:13px;font-weight:600">${p.nama}</div>
-            <div style="font-size:11px;color:var(--text-secondary)">${p.kelas} | ${p.agiliran}</div>
-          </div>
-        </div>
-
-        <div class="grid-3" style="margin-bottom:16px">
+      <div class="modal">
+        <div class="modal-header"><h3>Log Sahsiah Pelajar</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <div class="grid-3" style="margin-bottom:12px">
           <div class="stat-card"><div class="label">Merit</div><div class="value gred-A">+${m.jumlahMerit}</div></div>
           <div class="stat-card"><div class="label">Demerit</div><div class="value gred-F">-${m.jumlahDemerit}</div></div>
-          <div class="stat-card"><div class="label">Jumlah Bersih</div><div class="value ${bersihClass}">${m.jumlahBersih > 0 ? '+' : ''}${m.jumlahBersih}</div></div>
+          <div class="stat-card"><div class="label">Bersih</div><div class="value">${m.jumlahBersih}</div></div>
         </div>
-
-        <!-- Form tambah rekod baru -->
-        <div style="background:var(--bg);border-radius:var(--radius);padding:14px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:10px">Catat Rekod Baru</div>
-          <div class="grid-2" style="gap:10px;margin-bottom:10px">
-            <div class="form-group" style="margin-bottom:0">
-              <label>Jenis</label>
-              <select id="merit-jenis" onchange="updateKategoriOptions()">
-                <option value="Merit">Merit (+)</option>
-                <option value="Demerit">Demerit (-)</option>
-              </select>
-            </div>
-            <div class="form-group" style="margin-bottom:0">
-              <label>Kategori</label>
-              <select id="merit-kategori"></select>
-            </div>
+        <div style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:12px">
+          <div class="grid-2" style="gap:8px">
+            <div class="form-group"><label>Jenis</label><select id="merit-jenis" onchange="updateKategoriOptions()"><option value="Merit">Merit</option><option value="Demerit">Demerit</option></select></div>
+            <div class="form-group"><label>Kategori</label><select id="merit-kategori"></select></div>
           </div>
-          <div class="form-group">
-            <label>Nota (pilihan)</label>
-            <input type="text" id="merit-nota" placeholder="cth: Hadir 15 minit awal pada 12/6/2026"/>
-          </div>
-          <button class="btn btn-primary btn-block" onclick="submitMeritDemerit('${nokp}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Tambah Rekod
-          </button>
+          <div class="form-group"><label>Catatan</label><input type="text" id="merit-nota" placeholder="Perincian insiden..."/></div>
+          <button class="btn btn-primary btn-block btn-sm" onclick="submitMeritDemerit('${p.nokp}')">Simpan Rekod</button>
         </div>
-
-        <!-- Sejarah rekod -->
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">Sejarah Rekod (${m.records.length})</div>
-        <div style="max-height:240px;overflow-y:auto">
-          ${m.records.length === 0 ? `<div class="empty-state" style="padding:24px"><div class="icon">📋</div><p>Belum ada rekod merit/demerit.</p></div>` :
-          m.records.map(r => `
-            <div class="mark-summary-row" style="align-items:flex-start">
-              <span class="badge ${r.jenis==='Merit'?'badge-green':'badge-red'}" style="flex-shrink:0">${r.jenis==='Merit'?'+':'-'}${r.mata}</span>
-              <div style="flex:1">
-                <div style="font-size:12px;font-weight:500">${r.kategori}</div>
-                ${r.nota ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">${r.nota}</div>` : ''}
-                <div style="font-size:10px;color:var(--text-secondary);margin-top:2px">${r.tarikh} — ${r.dicatatOleh}</div>
-              </div>
-              <button class="modal-close" style="width:24px;height:24px;font-size:13px;flex-shrink:0" onclick="hapusMeritDemerit('${r.id}','${nokp}')" title="Padam">🗑</button>
-            </div>`).join('')}
+        <div style="max-height:180px;overflow-y:auto">
+          ${m.records.map(r=>`<div class="mark-summary-row"><span class="badge ${r.jenis==='Merit'?'badge-green':'badge-red'}">${r.jenis}</span><div style="flex:1">${r.kategori} - <small>${r.nota}</small></div><button class="modal-close" style="width:20px;height:20px;font-size:11px" onclick="hapusMeritDemerit('${r.id}','${p.nokp}')">🗑</button></div>`).join('')}
         </div>
       </div>
     </div>`;
-
   updateKategoriOptions();
 }
 
 function updateKategoriOptions() {
   const jenis = document.getElementById('merit-jenis').value;
-  const kategoriSel = document.getElementById('merit-kategori');
-  const kategoriObj = jenis === 'Merit' ? KATEGORI_MERIT : KATEGORI_DEMERIT;
-  const sign = jenis === 'Merit' ? '+' : '-';
-  kategoriSel.innerHTML = Object.entries(kategoriObj).map(([k,v]) =>
-    `<option value="${k}">${k} (${sign}${v})</option>`
-  ).join('');
+  const sel = document.getElementById('merit-kategori');
+  const obj = jenis === 'Merit' ? KATEGORI_MERIT : KATEGORI_DEMERIT;
+  sel.innerHTML = Object.keys(obj).map(k=>`<option value="${k}">${k} (${obj[k]}m)</option>`).join('');
 }
 
 async function submitMeritDemerit(nokp) {
-  const p = PELAJAR_LIST.find(x => x.nokp === nokp);
+  const p = PELAJAR_LIST.find(x => cleanNokp(x.nokp) === cleanNokp(nokp));
   const jenis = document.getElementById('merit-jenis').value;
   const kategori = document.getElementById('merit-kategori').value;
   const nota = document.getElementById('merit-nota').value.trim();
 
-  const btn = event.target.closest('button');
-  btn.disabled = true;
-  btn.textContent = 'Menyimpan...';
-
-  const result = await callGASPost('saveMeritDemerit', {
-    nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran,
-    jenis, kategori, nota,
-    dicatatOleh: currentUser?.nama || ''
-  });
-
-  if (result?.ok) {
-    notify(result.message || 'Rekod disimpan!', 'success');
-    await loadAllMeritDemerit(); // muat semula dari Sheet — data sah & dikongsi semua peranti
+  const res = await callGASPost('saveMeritDemerit', { nokp: p.nokp, nama: p.nama, kelas: p.kelas, agiliran: p.agiliran, jenis, kategori, nota, dicatatOleh: currentUser.nama });
+  if(res?.ok) {
+    await loadAllMeritDemerit();
     openMeritModal(nokp);
-  } else {
-    notify('Ralat: ' + (result?.error || 'Gagal simpan ke Sheet'), 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg> Tambah Rekod';
   }
-}
-
-// Format tarikh ringkas untuk rekod tempatan (dd/mm/yyyy hh:mm)
-function Utilities_formatNow() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 async function hapusMeritDemerit(id, nokp) {
-  if (!confirm('Padam rekod ini?')) return;
-
-  const result = await callGASPost('deleteMeritDemerit', { id });
-  if (result?.ok) {
-    notify('Rekod dipadam.', 'success');
+  if(!confirm('Padam rekod amaran ini?')) return;
+  const res = await callGASPost('deleteMeritDemerit', { id });
+  if(res?.ok) {
     await loadAllMeritDemerit();
     openMeritModal(nokp);
-  } else {
-    notify('Ralat: ' + (result?.error || 'Gagal padam'), 'error');
   }
 }
 
 // ================================================================
-// SCREEN: PELAJAR — BIODATA (FIX 1 + FIX 3)
+// SCREEN: PROFIL & BIODATA (BAHAGIAN PELAJAR)
 // ================================================================
 function renderPelajarBiodata() {
   const p = currentPelajar;
-  const bio = biodataDB[p.nokp] || {};
+  const key = cleanNokp(p.nokp);
+  const bio = biodataDB[key] || {};
   const gambarUrl = bio.gambar || null;
 
   document.getElementById('main-content').innerHTML = `
     <div class="grid-2">
       <div class="card">
-        <div class="card-header"><div class="card-title">Maklumat Peribadi</div></div>
+        <div class="card-header"><div class="card-title">Profil Asas Kohort</div></div>
         <div style="text-align:center;margin-bottom:16px">
           <div id="bio-avatar-preview" style="width:100px;height:100px;border-radius:50%;overflow:hidden;margin:0 auto 12px;border:3px solid var(--border);background:${avatarBg(p.nama).bg};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:600;color:${avatarBg(p.nama).text}">
-            ${gambarUrl ? `<img src="${gambarUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;" onerror="this.style.display='none'"/>` : getInitials(p.nama)}
+            ${gambarUrl ? `<img src="${gambarUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>` : getInitials(p.nama)}
           </div>
           <div style="font-size:15px;font-weight:600">${p.nama}</div>
           <div style="font-size:12px;color:var(--text-secondary)">${p.kelas} | ${p.agiliran}</div>
         </div>
-        <hr class="divider">
-        <div class="info-row"><div class="info-label">No. KP</div><div class="info-value">${p.nokp}</div></div>
+        <div class="info-row"><div class="info-label">No. Kad Pengenalan</div><div class="info-value">${p.nokp}</div></div>
         <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">Kelas</div><div class="info-value">${p.kelas}</div></div>
-        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
       </div>
-
       <div class="card">
-        <div class="card-header"><div class="card-title">Biodata Tambahan</div></div>
-
-        <!-- FIX 1 + FIX 3: Upload gambar yang betul -->
-        <div class="photo-upload-area" onclick="triggerPhotoUpload()" id="upload-zone">
+        <div class="card-header"><div class="card-title">Perincian Profil Kesihatan & Komuniti</div></div>
+        <div class="photo-upload-area" onclick="triggerPhotoUpload()">
           <div class="preview-circle-wrap" id="upload-preview-circle">
-            ${gambarUrl
-              ? `<img src="${gambarUrl}" alt="Gambar profil" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;" onerror="this.parentElement.innerHTML='<span style=\\"font-size:30px;opacity:.4\\">📷</span>'"/>`
-              : `<span style="font-size:30px;opacity:.4">📷</span>`
-            }
+            ${gambarUrl ? `<img src="${gambarUrl}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>` : '📷'}
           </div>
-          <div id="upload-status-text" style="font-size:12px;color:var(--text-secondary)">Klik untuk muat naik gambar</div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">JPG / PNG, maks 3MB — muka akan nampak jelas</div>
-          <div class="upload-progress" id="upload-progress">
-            <div class="upload-spinner"></div>
-            <span>Memuat naik gambar...</span>
-          </div>
-          <input type="file" id="photo-file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handlePhotoUpload(event)"/>
-        </div>
-
-        <div class="form-group">
-          <label>Jawatan dalam Kumpulan</label>
-          <select id="bio-jawatan">
-            <option value="">— Pilih Jawatan —</option>
-            <option ${bio.jawatan==='Pengerusi'?'selected':''}>Pengerusi</option>
-            <option ${bio.jawatan==='Setiausaha'?'selected':''}>Setiausaha</option>
-            <option ${bio.jawatan==='Bendahari'?'selected':''}>Bendahari</option>
-            <option ${bio.jawatan==='Ahli'?'selected':''}>Ahli</option>
-          </select>
+          <div style="font-size:12px;" id="upload-status-text">Muat naik gambar profil rasmi</div>
+          <div class="upload-progress" id="upload-progress"><div class="upload-spinner"></div><span>Memuat naik dokumen imej...</span></div>
+          <input type="file" id="photo-file" accept="image/*" style="display:none" onchange="handlePhotoUpload(event)"/>
         </div>
         <div class="form-group">
-          <label>Kumpulan</label>
+          <label>Kumpulan Kuliah</label>
           <select id="bio-kumpulan" onchange="updateNoDlmKumpulanOptions()">
             <option value="">— Pilih Kumpulan —</option>
             ${['A','B','C','D','E','F','G','H','I','J'].map(huruf=>`<option value="${huruf}" ${bio.kumpulan===huruf?'selected':''}>Kumpulan ${huruf}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group">
-          <label>No. Dalam Kumpulan</label>
-          <select id="bio-nodlm">
-            <option value="">— Pilih No —</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Alahan / Masalah Kesihatan</label>
-          <textarea id="bio-alahan" rows="2" placeholder="Tiada">${bio.alahan||''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>Ubat-ubatan</label>
-          <textarea id="bio-ubat" rows="2" placeholder="Tiada">${bio.ubat||''}</textarea>
-        </div>
-        <div class="form-group">
-          <label>No. Tel Kecemasan</label>
-          <input type="tel" id="bio-notel" value="${bio.notel||''}" placeholder="01X-XXXXXXXX"/>
-        </div>
-        <button class="btn btn-primary btn-block" onclick="saveBiodataPelajar()" id="btn-save-biodata">Simpan Biodata</button>
+        <div class="form-group"><label>No ID Ahli Kumpulan</label><select id="bio-nodlm"><option value="">— Pilih No —</option></select></div>
+        <div class="form-group"><label>Jawatan Kumpulan</label><select id="bio-jawatan"><option value="Ahli" ${bio.jawatan==='Ahli'?'selected':''}>Ahli</option><option value="Pengerusi" ${bio.jawatan==='Pengerusi'?'selected':''}>Pengerusi</option><option value="Setiausaha" ${bio.jawatan==='Setiausaha'?'selected':''}>Setiausaha</option></select></div>
+        <div class="form-group"><label>Alahan Medikal</label><input type="text" id="bio-alahan" value="${bio.alahan||''}"/></div>
+        <div class="form-group"><label>Ubat Kronik</label><input type="text" id="bio-ubat" value="${bio.ubat||''}"/></div>
+        <div class="form-group"><label>No Tel Waris Kecemasan</label><input type="text" id="bio-notel" value="${bio.notel||''}"/></div>
+        <button class="btn btn-primary btn-block" onclick="saveBiodataPelajar()" id="btn-save-biodata">Simpan Maklumat Profil</button>
       </div>
     </div>`;
-
-  // Isi dropdown No. Dalam Kumpulan dengan nilai sedia ada (jika ada)
-  if (bio.kumpulan) {
+  if(bio.kumpulan) {
     document.getElementById('bio-nodlm').dataset.preset = bio.noDlmKumpulan || '';
     updateNoDlmKumpulanOptions();
   }
 }
 
-// Isi dropdown "No. Dalam Kumpulan" (cth: A1-A10) berdasarkan huruf Kumpulan dipilih
 function updateNoDlmKumpulanOptions() {
   const kumpulan = document.getElementById('bio-kumpulan').value;
   const nodlmSel = document.getElementById('bio-nodlm');
   const currentVal = nodlmSel.dataset.preset || nodlmSel.value;
-
-  if (!kumpulan) {
-    nodlmSel.innerHTML = '<option value="">— Pilih No —</option>';
-    return;
-  }
-
+  if (!kumpulan) { nodlmSel.innerHTML = '<option value="">— Pilih No —</option>'; return; }
   let opts = '<option value="">— Pilih No —</option>';
   for (let i = 1; i <= 10; i++) {
     const val = kumpulan + i;
@@ -2232,68 +1927,34 @@ function updateNoDlmKumpulanOptions() {
   delete nodlmSel.dataset.preset;
 }
 
-function triggerPhotoUpload() {
-  document.getElementById('photo-file').click();
-}
+function triggerPhotoUpload() { document.getElementById('photo-file').click(); }
 
-// FIX 3: Preview gambar dengan crop betul + FIX 1: simpan ke Drive
 async function handlePhotoUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
-  if (file.size > 3 * 1024 * 1024) {
-    notify('Fail terlalu besar. Sila pilih gambar kurang dari 3MB.', 'error');
-    return;
-  }
-
-  // Tunjuk preview segera (base64) sambil upload
   const reader = new FileReader();
   reader.onload = function(e) {
     pendingPhotoBase64 = e.target.result;
     pendingPhotoFile = file;
-
-    // Update preview dengan crop betul
-    document.getElementById('upload-preview-circle').innerHTML =
-      `<img src="${pendingPhotoBase64}" alt="Preview" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>`;
-    document.getElementById('upload-status-text').textContent = 'Gambar dipilih — tekan Simpan untuk muat naik';
-
-    // Update avatar preview di sebelah kiri
-    const avatarEl = document.getElementById('bio-avatar-preview');
-    if (avatarEl) {
-      avatarEl.innerHTML = `<img src="${pendingPhotoBase64}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>`;
-    }
+    document.getElementById('upload-preview-circle').innerHTML = `<img src="${pendingPhotoBase64}" style="width:100%;height:100%;object-fit:cover;object-position:center top;display:block;"/>`;
   };
   reader.readAsDataURL(file);
 }
 
-// FIX 1: Simpan biodata + upload gambar ke Drive, kekal selepas refresh
 async function saveBiodataPelajar() {
-  const btnSave = document.getElementById('btn-save-biodata');
-  btnSave.disabled = true;
-  btnSave.textContent = 'Menyimpan...';
+  const btn = document.getElementById('btn-save-biodata');
+  btn.disabled = true; btn.textContent = 'Menghantar pangkalan data...';
+  const key = cleanNokp(currentPelajar.nokp);
 
   try {
-    let gambarUrl = biodataDB[currentPelajar.nokp]?.gambar || null;
-
-    // Upload gambar ke Google Drive jika ada fail baru
+    let gambarUrl = biodataDB[key]?.gambar || null;
     if (pendingPhotoFile) {
       document.getElementById('upload-progress').style.display = 'flex';
-      document.getElementById('upload-status-text').textContent = 'Mengompres & memuat naik gambar...';
-
       gambarUrl = await uploadGambarKeDrive(pendingPhotoFile, currentPelajar.nokp);
-      console.log('[Biodata] gambarUrl selepas upload:', gambarUrl?.substring(0, 80));
-
       document.getElementById('upload-progress').style.display = 'none';
-      if (gambarUrl && !gambarUrl.startsWith('data:')) {
-        document.getElementById('upload-status-text').textContent = '✓ Gambar berjaya dimuat naik ke Drive';
-      } else {
-        document.getElementById('upload-status-text').textContent = '⚠ Gambar disimpan sementara (Drive tidak berjaya)';
-      }
-      pendingPhotoFile = null;
     }
 
-    // Simpan biodata
-    const nokp = currentPelajar.nokp;
-    biodataDB[nokp] = {
+    biodataDB[key] = {
       jawatan: document.getElementById('bio-jawatan').value,
       kumpulan: document.getElementById('bio-kumpulan').value,
       noDlmKumpulan: document.getElementById('bio-nodlm').value,
@@ -2303,75 +1964,58 @@ async function saveBiodataPelajar() {
       gambar: gambarUrl
     };
 
-    // Simpan ke Sheets via GAS
-    const saveResult = await saveBiodataData(nokp);
-    console.log('[Biodata] Hasil simpan ke Sheet:', saveResult);
-
-    // Update sidebar dengan gambar baru
+    await saveBiodataData(currentPelajar.nokp);
     buildSidebarPelajar();
-
-    notify('Biodata berjaya disimpan!', 'success');
-    pendingPhotoBase64 = null;
+    notify('Profil maklumat berjaya dikemaskini secara menyeluruh!', 'success');
   } catch (e) {
-    notify('Ralat semasa menyimpan: ' + e.message, 'error');
+    notify('Simpanan gagal.', 'error');
   } finally {
-    btnSave.disabled = false;
-    btnSave.textContent = 'Simpan Biodata';
+    btn.disabled = false; btn.textContent = 'Simpan Maklumat Profil';
   }
 }
 
 // ================================================================
-// SCREEN: PELAJAR — PEER REVIEW
+// SCREEN: PENILAIAN RAKAN SEBAYA (BAHAGIAN PELAJAR)
 // ================================================================
 function renderPelajarPeer() {
   const p = currentPelajar;
-  const bio = biodataDB[p.nokp] || {};
+  const bio = biodataDB[cleanNokp(p.nokp)] || {};
   if (!bio.kumpulan) {
-    document.getElementById('main-content').innerHTML = `
-      <div class="card">
-        <div class="alert alert-info"><span>ℹ</span><span>Sila lengkapkan biodata anda terlebih dahulu dan pilih kumpulan sebelum membuat penilaian rakan.</span></div>
-        <button class="btn btn-primary" onclick="navigateTo('pelajar-biodata')">Ke Biodata</button>
-      </div>`;
+    document.getElementById('main-content').innerHTML = `<div class="card"><div class="alert alert-info">Sila tetapkan kumpulan kuliah anda dalam tab Profil sebelum memulakan penilaian.</div></div>`;
     return;
   }
 
   const peers = PELAJAR_LIST.filter(peer => {
-    const pbio = biodataDB[peer.nokp] || {};
-    return peer.nokp !== p.nokp && pbio.kumpulan === bio.kumpulan && peer.kelas === p.kelas;
+    const pbio = biodataDB[cleanNokp(peer.nokp)] || {};
+    return cleanNokp(peer.nokp) !== cleanNokp(p.nokp) && pbio.kumpulan === bio.kumpulan && peer.kelas === p.kelas;
   });
 
   const alreadyRated = peerRatingsDB.filter(r=>r.Reviewer_ID===p.agiliran).map(r=>r.Target_ID);
 
   document.getElementById('main-content').innerHTML = `
-    <div class="card" style="margin-bottom:14px">
-      <div class="card-title">Kumpulan ${bio.kumpulan} — ${p.kelas}</div>
-      <div class="card-subtitle">${peers.length} rakan dalam kumpulan anda</div>
+    <div class="card">
+      <div class="card-title">Penilaian Kumpulan ${bio.kumpulan}</div>
     </div>
-    <div class="grid-2" id="peer-rate-grid">
-      ${peers.length===0?`<div class="empty-state"><div class="icon">👥</div><p>Tiada rakan dalam kumpulan yang sama. Pastikan ahli kumpulan telah mengisi biodata mereka.</p></div>`:''}
-      ${peers.map(peer=>{
+    <div class="grid-2">
+      ${peers.map(peer => {
         const rated = alreadyRated.includes(peer.agiliran);
-        const pbio = biodataDB[peer.nokp]||{};
+        const pbio = biodataDB[cleanNokp(peer.nokp)] || {};
         return `<div class="card">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             ${renderAvatar(40, peer.nama, pbio.gambar||null)}
-            <div>
-              <div style="font-size:13px;font-weight:600">${peer.nama.split(' ').slice(0,3).join(' ')}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">${peer.kelas} | ${pbio.jawatan||'Ahli'}</div>
-            </div>
-            ${rated?`<span class="badge badge-green" style="margin-left:auto">Dinilai ✓</span>`:''}
+            <div><strong>${peer.nama}</strong><div style="font-size:11px;color:var(--text-secondary)">${peer.agiliran}</div></div>
           </div>
-          ${rated?`<div style="font-size:12px;color:var(--text-secondary);text-align:center;padding:10px">Anda telah menilai rakan ini.</div>`:
-          `<div id="rate-form-${peer.nokp}">
-            ${['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'].map(dim=>`
-            <div style="margin-bottom:10px">
-              <div style="font-size:12px;font-weight:500;margin-bottom:5px;color:var(--text-secondary)">${dim}</div>
-              <div class="star-group" data-dim="${dim}" data-target="${peer.nokp}">
-                ${[1,2,3,4,5].map(n=>`<div class="star" onclick="selectStar(this,${n})" data-val="${n}">${n}</div>`).join('')}
-              </div>
-            </div>`).join('')}
-            <button class="btn btn-primary btn-block" style="margin-top:8px" onclick="submitPeerRating('${peer.nokp}','${peer.agiliran}')">Hantar Penilaian</button>
-          </div>`}
+          ${rated ? `<div class="badge badge-green">Selesai Dinilai</div>` : `
+            <div id="rate-form-${cleanNokp(peer.nokp)}">
+              ${['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'].map(d=>`
+                <div style="margin-bottom:6px">
+                  <span style="font-size:12px;color:var(--text-secondary)">${d}</span>
+                  <div class="star-group" data-dim="${d}" data-target="${peer.nokp}">
+                    ${[1,2,3,4,5].map(n=>`<div class="star" onclick="selectStar(this,${n})" data-val="${n}">${n}</div>`).join('')}
+                  </div>
+                </div>`).join('')}
+              <button class="btn btn-primary btn-block btn-xs" style="margin-top:6px" onclick="submitPeerRating('${peer.nokp}','${peer.agiliran}')">Hantar Markah</button>
+            </div>`}
         </div>`;
       }).join('')}
     </div>`;
@@ -2384,73 +2028,62 @@ function selectStar(el, val) {
 }
 
 async function submitPeerRating(targetNokp, targetAgiliran) {
-  const container = document.getElementById('rate-form-' + targetNokp);
+  const container = document.getElementById('rate-form-' + cleanNokp(targetNokp));
   const dims = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
   const record = {
     Timestamp: new Date().toISOString(),
     Reviewer_ID: currentPelajar.agiliran,
     Target_ID: targetAgiliran,
     Siri: 1,
-    Kumpulan: (biodataDB[currentPelajar.nokp]||{}).kumpulan||''
+    Kumpulan: (biodataDB[cleanNokp(currentPelajar.nokp)]||{}).kumpulan||''
   };
   let valid = true;
   dims.forEach(d => {
     const group = container.querySelector(`.star-group[data-dim="${d}"]`);
-    if (!group||!group.dataset.selected) { valid = false; return; }
+    if (!group || !group.dataset.selected) { valid = false; return; }
     record[d] = parseFloat(group.dataset.selected);
   });
-  if (!valid) { notify('Sila beri markah untuk semua dimensi!', 'error'); return; }
+  if (!valid) { notify('Sila lengkapkan semua rubrik kompetensi!', 'error'); return; }
   peerRatingsDB.push(record);
   await savePeerData(record);
-  notify('Penilaian dihantar!', 'success');
+  notify('Penilaian kompetensi sosial berjaya dihantar!', 'success');
   renderPelajarPeer();
 }
 
 // ================================================================
-// HELPER: View Pelajar Detail Modal
+// DETAI MODAL INTERFACES
 // ================================================================
 function viewPelajarDetail(nokp) {
-  const p = PELAJAR_LIST.find(x=>x.nokp===nokp);
+  const p = PELAJAR_LIST.find(x=>cleanNokp(x.nokp)===cleanNokp(nokp));
   if (!p) return;
-  const bio = biodataDB[nokp]||{};
+  const bio = biodataDB[cleanNokp(nokp)]||{};
   const calc = calcMarkah(nokp);
-  const hasMark = !!markahDB[nokp];
+  const hasMark = !!markahDB[cleanNokp(nokp)];
   const {gred} = hasMark?getGred(calc.jumlah):{gred:'—'};
 
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal">
-        <div class="modal-header"><h3>Profil Pelajar</h3><button class="modal-close" onclick="closeModal()">×</button></div>
-        <div style="text-align:center;margin-bottom:16px">
-          ${renderAvatar(80, p.nama, bio.gambar||null, 'margin:0 auto 12px;border:3px solid var(--border);')}
-          <div style="font-size:15px;font-weight:600;margin-top:6px">${p.nama}</div>
-          <span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}" style="margin-top:4px">${p.kelas}</span>
+        <div class="modal-header"><h3>Kad Kemajuan Pelajar</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <div style="text-align:center;margin-bottom:12px">
+          ${renderAvatar(64, p.nama, bio.gambar||null, 'margin:0 auto;')}
+          <h4 style="margin-top:8px">${p.nama}</h4>
         </div>
         <div class="info-row"><div class="info-label">Angka Giliran</div><div class="info-value">${p.agiliran}</div></div>
-        <div class="info-row"><div class="info-label">Jantina</div><div class="info-value">${p.jantina==='L'?'Lelaki':'Perempuan'}</div></div>
-        ${bio.jawatan?`<div class="info-row"><div class="info-label">Jawatan</div><div class="info-value">${bio.jawatan}</div></div>`:''}
-        ${bio.kumpulan?`<div class="info-row"><div class="info-label">Kumpulan</div><div class="info-value">${bio.kumpulan}</div></div>`:''}
-        ${bio.noDlmKumpulan?`<div class="info-row"><div class="info-label">No Dalam Kumpulan</div><div class="info-value">${bio.noDlmKumpulan}</div></div>`:''}
-        ${bio.alahan?`<div class="info-row"><div class="info-label">Alahan</div><div class="info-value">${bio.alahan}</div></div>`:''}
-        ${bio.notel?`<div class="info-row"><div class="info-label">No. Tel Kecemasan</div><div class="info-value">${bio.notel}</div></div>`:''}
+        <div class="info-row"><div class="info-label">Kumpulan</div><div class="info-value">${bio.kumpulan || '—'}</div></div>
+        <div class="info-row"><div class="info-label">Jawatan</div><div class="info-value">${bio.jawatan || '—'}</div></div>
+        <div class="info-row"><div class="info-label">Alahan Kesihatan</div><div class="info-value">${bio.alahan || 'Tiada'}</div></div>
         <hr class="divider">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-          <div class="stat-card"><div class="label">HPK1</div><div class="value" style="font-size:16px">${hasMark?calc.hpk1.toFixed(1):'—'}</div></div>
-          <div class="stat-card"><div class="label">HPK2</div><div class="value" style="font-size:16px">${hasMark?calc.hpk2.toFixed(1):'—'}</div></div>
-          <div class="stat-card"><div class="label">HPK3</div><div class="value" style="font-size:16px">${hasMark?calc.hpk3.toFixed(1):'—'}</div></div>
-        </div>
-        <div style="text-align:center">
-          <span style="font-size:24px;font-weight:700" class="${gredClass(gred)}">${hasMark?calc.jumlah.toFixed(1):'—'}</span>
-          <span style="font-size:14px;color:var(--text-secondary);margin-left:8px">Gred: <strong class="${gredClass(gred)}">${gred}</strong></span>
+        <div style="text-align:center;padding:12px 0">
+          <span style="font-size:32px;font-weight:700" class="${gredClass(gred)}">${hasMark?calc.jumlah.toFixed(1):'—'}</span>
+          <div style="font-size:13px;color:var(--text-secondary)">Gred Pencapaian Akhir: <strong>${gred}</strong></div>
         </div>
       </div>
     </div>`;
 }
 
-function closeModal() { document.getElementById('modal-container').innerHTML=''; }
-
 function viewPeerDetail(nokp) {
-  const p = PELAJAR_LIST.find(x=>x.nokp===nokp);
+  const p = PELAJAR_LIST.find(x=>cleanNokp(x.nokp)===cleanNokp(nokp));
   if (!p) return;
   const ratings = peerRatingsDB.filter(r=>r.Target_ID===p.agiliran);
   const dims = ['Kepimpinan','Kerjasama','Komunikasi','Komitmen','Sahsiah'];
@@ -2459,27 +2092,25 @@ function viewPeerDetail(nokp) {
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal">
-        <div class="modal-header"><h3>Penilaian Rakan — ${p.nama.split(' ').slice(0,2).join(' ')}</h3><button class="modal-close" onclick="closeModal()">×</button></div>
-        <canvas id="spider-modal" height="250"></canvas>
-        <div style="margin-top:14px">
-          ${dims.map((d,i)=>`<div class="mark-summary-row"><div style="flex:1;font-size:13px;font-weight:500">${d}</div><div style="width:40px;text-align:right;font-size:13px">${avgDims[i].toFixed(1)}/5</div><div style="width:100px;padding-left:8px"><div class="progress-bar"><div class="progress-fill" style="width:${avgDims[i]/5*100}%;background:var(--primary)"></div></div></div></div>`).join('')}
+        <div class="modal-header"><h3>Analisis Profil Sosiometri</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <canvas id="spider-modal" height="220"></canvas>
+        <div style="margin-top:12px">
+          ${dims.map((d,i)=>`<div class="mark-summary-row"><div style="flex:1;font-weight:500">${d}</div><div>${avgDims[i].toFixed(1)}/5</div></div>`).join('')}
         </div>
-        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-secondary)">Berdasarkan ${ratings.length} penilaian rakan</div>
       </div>
     </div>`;
   setTimeout(()=>buildSpider('spider-modal',dims,avgDims),50);
 }
 
-// Keyboard shortcuts
+function closeModal() { document.getElementById('modal-container').innerHTML=''; }
+
 document.addEventListener('keydown', e => {
   if (e.key==='Escape') closeModal();
-  if (e.key==='Enter') {
-    if (!document.getElementById('screen-auth').classList.contains('hidden')) doLogin();
-  }
+  if (e.key==='Enter' && !document.getElementById('screen-auth').classList.contains('hidden')) doLogin();
 });
 
-// Init
-loadFromSession(); // muat dari session sebagai cache awal
+// INITIALIZE SYSTEM CACHE LOAD
+loadFromSession();
 document.getElementById('screen-auth').classList.remove('hidden');
 document.getElementById('app').classList.add('hidden');
 </script>
