@@ -802,6 +802,9 @@ let meritDB = {};
 let currentPelajar = null;
 let pendingPhotoBase64 = null;
 let pendingPhotoFile = null;
+let serverConnected = false;
+let lastSyncError = null;
+let lastSyncTime = null;
 
 // ================================================================
 // LALUAN FUNGSI PENORMALAN NOKP (Penyelesaian Utama)
@@ -910,9 +913,13 @@ async function fetchWithTimeout(action, payload = {}, timeoutMs = 15000) {
 }
 
 async function loadDataFromSheets() {
+  serverConnected = false;
+  lastSyncError = null;
+
   try {
     const markahRes = await fetchWithTimeout('getAllMarkah');
     if (markahRes?.ok && markahRes.data) {
+      serverConnected = true;
       markahDB = {};
       markahRes.data.forEach(m => {
         if (!m.nokp) return;
@@ -927,10 +934,15 @@ async function loadDataFromSheets() {
         Object.keys(activeObj).forEach(k => { if (activeObj[k] === undefined) delete activeObj[k]; });
       });
       try { sessionStorage.setItem('ipg_markah', JSON.stringify(markahDB)); } catch(e) {}
+    } else if (markahRes && markahRes.ok === false) {
+      lastSyncError = markahRes.error || 'Pelayan memulangkan ralat tanpa mesej.';
+    } else {
+      lastSyncError = 'Tiada respons sah daripada pelayan (kemungkinan URL /exec tidak betul atau kebenaran deployment tidak dibenarkan untuk "Anyone").';
     }
 
     const biodataRes = await fetchWithTimeout('getAllBiodata');
     if (biodataRes?.ok && biodataRes.data) {
+      serverConnected = true;
       biodataDB = {};
       biodataRes.data.forEach(b => {
         if (!b.nokp) return;
@@ -946,13 +958,20 @@ async function loadDataFromSheets() {
 
     const peerRes = await fetchWithTimeout('getPeerRatings', {});
     if (peerRes?.ok && peerRes.data) {
+      serverConnected = true;
       peerRatingsDB = peerRes.data;
       try { sessionStorage.setItem('ipg_peer', JSON.stringify(peerRatingsDB)); } catch(e) {}
     }
+
+    if (!serverConnected) {
+      loadFromSession();
+    }
   } catch (e) {
+    lastSyncError = e.message;
     console.warn('Gagal memuat turun data, menggunakan sistem cache tempatan.', e);
     loadFromSession();
   }
+  lastSyncTime = new Date();
 }
 
 function loadFromSession() {
@@ -1081,6 +1100,76 @@ function hideLoading() {
   document.getElementById('loading-overlay').classList.add('hidden');
 }
 
+// ================================================================
+// STATUS SEGERAK PELAYAN (untuk sokongan cross-device)
+// ================================================================
+function renderSyncStatus() {
+  const el = document.getElementById('topbar-right');
+  if (!el) return;
+  const masa = lastSyncTime ? lastSyncTime.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' }) : '—';
+  const badge = serverConnected
+    ? `<span class="badge badge-green" style="cursor:pointer" onclick="diagnosaSambungan()" title="Klik untuk butiran">🟢 Disegerak (${masa})</span>`
+    : `<span class="badge badge-red" style="cursor:pointer" onclick="diagnosaSambungan()" title="Klik untuk diagnosis">🔴 Luar Talian — Klik diagnosis</span>`;
+  el.innerHTML = `
+    <div class="flex items-center gap-8">
+      ${badge}
+      <button class="btn btn-xs" onclick="segarkanSemuaData()">🔄 Muat Semula</button>
+    </div>`;
+}
+
+async function segarkanSemuaData() {
+  showLoading('Menyegerakkan data terkini...', 'Menghubungi Google Sheets');
+  await loadDataFromSheets();
+  if (currentRole === 'pensyarah') await loadAllMeritDemerit();
+  hideLoading();
+  renderSyncStatus();
+  if (currentScreen) navigateTo(currentScreen);
+  notify(serverConnected ? 'Data terkini berjaya dimuatkan daripada Google Sheets.' : 'Gagal menyegerak — memaparkan cache tempatan sahaja.', serverConnected ? 'success' : 'error');
+}
+
+async function diagnosaSambungan() {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-header"><h3>Diagnosis Sambungan Pelayan</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+        <div id="diag-body">
+          <div class="flex items-center gap-8"><div class="loading-spinner-lg" style="width:20px;height:20px;border-width:2px"></div><span>Menguji sambungan ke Google Apps Script...</span></div>
+        </div>
+      </div>
+    </div>`;
+
+  const mula = Date.now();
+  let hasil;
+  try {
+    hasil = await callGAS('getAllMarkah');
+  } catch (e) {
+    hasil = { ok: false, error: e.message };
+  }
+  const tempoh = Date.now() - mula;
+  const berjaya = !!(hasil && hasil.ok);
+
+  document.getElementById('diag-body').innerHTML = `
+    <div class="alert ${berjaya ? 'alert-success' : 'alert-danger'}">
+      ${berjaya ? '✅ Sambungan ke Google Sheets berjaya (' + tempoh + 'ms). Peranti ini boleh membaca data terkini.' : '❌ Peranti/pelayar ini GAGAL menghubungi pelayan Google Apps Script.'}
+    </div>
+    <div class="info-row"><div class="info-label">URL Pelayan (/exec)</div><div class="info-value" style="word-break:break-all;font-size:11px">${GAS_URL}</div></div>
+    <div class="info-row"><div class="info-label">Tarikh/Masa Ujian</div><div class="info-value">${new Date().toLocaleString('ms-MY')}</div></div>
+    <div class="info-row"><div class="info-label">Respons Mentah</div><div class="info-value" style="font-size:11px;white-space:pre-wrap;max-height:120px;overflow:auto">${(hasil ? JSON.stringify(hasil) : 'null (fetch gagal sepenuhnya)').replace(/</g,'&lt;')}</div></div>
+    ${!berjaya ? `
+    <div class="alert alert-info" style="margin-top:10px;display:block">
+      <strong>Punca paling biasa (semak ikut turutan):</strong>
+      <ol style="margin:8px 0 0 18px;padding:0;font-size:12px;line-height:1.8">
+        <li>Buka Apps Script (script.google.com) → <strong>Deploy → Manage deployments</strong>.</li>
+        <li>Pastikan <strong>"Execute as"</strong> = akaun pemilik skrip (Me), BUKAN "User accessing the web app".</li>
+        <li>Pastikan <strong>"Who has access"</strong> = <strong>Anyone</strong> — bukan "Anyone within [organisasi]" atau "Only myself". Tetapan domain akan menyekat sesiapa yang bukan log masuk akaun ipgm.edu.my, termasuk peranti/pelayar lain.</li>
+        <li>Jika kod Code.gs baru diubah, ini TIDAK akan aktif pada URL /exec sedia ada sehingga anda klik ikon pensel pada deployment → pilih <strong>"New version"</strong> → Deploy.</li>
+        <li>Pastikan GAS_URL dalam fail index.html sepadan 100% dengan URL /exec yang terkini (URL berubah setiap kali "New deployment" dibuat, tetapi kekal sama untuk "New version" pada deployment sedia ada).</li>
+        <li>Cuba buka URL /exec terus dalam tab penyemak imbas swasta/tanpa log masuk Google — jika ia minta log masuk Google, tetapan akses masih salah.</li>
+      </ol>
+    </div>` : ''}
+  `;
+}
+
 function notify(msg, type = 'info') {
   const bar = document.getElementById('notification-bar');
   bar.textContent = msg;
@@ -1132,6 +1221,10 @@ async function doLogin() {
       loginBtn.disabled = false; loginBtn.textContent = 'Log Masuk';
     }
     startPensyarahApp();
+    renderSyncStatus();
+    if (!serverConnected) {
+      notify('⚠ Gagal menyegerak dengan Google Sheets. Data yang dipaparkan mungkin tidak terkini di peranti ini. Klik badge "Luar Talian" di penjuru atas untuk diagnosis.', 'error');
+    }
 
   } else {
     const nokpInput = document.getElementById('auth-nokp').value.trim();
@@ -1152,6 +1245,10 @@ async function doLogin() {
       loginBtn.disabled = false; loginBtn.textContent = 'Log Masuk';
     }
     startPelajarApp();
+    renderSyncStatus();
+    if (!serverConnected) {
+      notify('⚠ Gagal menyegerak dengan Google Sheets. Data mungkin tidak terkini di peranti ini.', 'error');
+    }
   }
 }
 
@@ -1161,6 +1258,9 @@ function doLogout() {
   currentPelajar = null;
   pendingPhotoBase64 = null;
   pendingPhotoFile = null;
+  serverConnected = false;
+  lastSyncError = null;
+  lastSyncTime = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('screen-auth').classList.remove('hidden');
   document.getElementById('auth-error').classList.add('hidden');
