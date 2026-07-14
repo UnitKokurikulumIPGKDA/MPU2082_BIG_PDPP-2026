@@ -1616,6 +1616,22 @@ function renderLaporan() {
   });
 
   document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+        <div><div class="card-title">Cetak Laporan Markah</div><div class="card-subtitle">Jana laporan bercetak keseluruhan atau ikut kelas</div></div>
+        <div class="flex items-center gap-8" style="flex-wrap:wrap">
+          <select id="cetak-kelas-pilihan" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+            <option value="Semua">Keseluruhan (Semua Kelas)</option>
+            <option value="PBKK">PBKK sahaja</option>
+            <option value="PIMK">PIMK sahaja</option>
+            <option value="PMO">PMO sahaja</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="cetakLaporan(document.getElementById('cetak-kelas-pilihan').value)">
+            🖨 Cetak Laporan
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="tabs">
       <div class="tab active" onclick="switchLaporanTab('overview',this)">Ringkasan</div>
       <div class="tab" onclick="switchLaporanTab('detail',this)">Senarai Detail</div>
@@ -1662,6 +1678,159 @@ function renderLaporan() {
     withMark.forEach(p=>{buckets[Math.min(9,Math.floor(p.jumlah/10))]++;});
     new Chart(document.getElementById('chart-lap-dist'),{type:'bar',data:{labels:['0–9','10–19','20–29','30–39','40–49','50–59','60–69','70–79','80–89','90–100'],datasets:[{data:buckets,backgroundColor:'#1D9E75',borderRadius:4}]},options:{plugins:{legend:{display:false}}}});
   }
+}
+
+// ================================================================
+// CETAKAN LAPORAN MARKAH (KESELURUHAN / IKUT KELAS)
+// ================================================================
+function cetakLaporan(kelasPilihan) {
+  const computed = PELAJAR_LIST.map(p => {
+    const c = calcMarkah(p.nokp);
+    return { ...p, ...c, hasMark: !!markahDB[cleanNokp(p.nokp)] };
+  });
+
+  const dataCetak = (kelasPilihan === 'Semua') ? computed : computed.filter(p => p.kelas === kelasPilihan);
+
+  if (dataCetak.length === 0) {
+    notify('Tiada pelajar untuk kelas ini.', 'error');
+    return;
+  }
+
+  // Susun ikut kelas, kemudian ikut nama
+  dataCetak.sort((a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama));
+
+  const withMarkCetak = dataCetak.filter(p => p.hasMark);
+  const purata = withMarkCetak.length
+    ? (withMarkCetak.reduce((s, p) => s + p.jumlah, 0) / withMarkCetak.length).toFixed(2)
+    : '—';
+  const tertinggi = withMarkCetak.length ? Math.max(...withMarkCetak.map(p => p.jumlah)).toFixed(1) : '—';
+  const terendah = withMarkCetak.length ? Math.min(...withMarkCetak.map(p => p.jumlah)).toFixed(1) : '—';
+
+  const gradeOrder = ['A+','A','A-','B+','B','B-','C+','C','C-','D','F'];
+  const gradeDist = {};
+  gradeOrder.forEach(g => gradeDist[g] = 0);
+  withMarkCetak.forEach(p => { gradeDist[getGred(p.jumlah).gred]++; });
+
+  const tajukKelas = kelasPilihan === 'Semua' ? 'KESELURUHAN KOHORT (SEMUA KELAS)' : 'KELAS ' + kelasPilihan;
+  const tarikhCetak = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' });
+  const masaCetak = new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+  const namaPencetak = (currentUser && currentUser.nama) ? currentUser.nama : '—';
+
+  const barisJadual = dataCetak.map((p, i) => {
+    const { gred } = p.hasMark ? getGred(p.jumlah) : { gred: '—' };
+    const m = markahDB[cleanNokp(p.nokp)] || {};
+    return `<tr>
+      <td>${i + 1}</td>
+      <td style="text-align:left">${p.nama}</td>
+      <td>${p.agiliran}</td>
+      <td>${p.kelas}</td>
+      <td>${m.kuiz !== undefined ? m.kuiz : '—'}</td>
+      <td>${m.hp4 !== undefined ? m.hp4 : '—'}</td>
+      <td>${m.hp5 !== undefined ? m.hp5 : '—'}</td>
+      <td>${m.hp3 !== undefined ? m.hp3 : '—'}</td>
+      <td>${m.hp8 !== undefined ? m.hp8 : '—'}</td>
+      <td><strong>${p.hasMark ? p.jumlah.toFixed(1) : '—'}</strong></td>
+      <td>${gred}</td>
+    </tr>`;
+  }).join('');
+
+  const gredRingkasan = gradeOrder.filter(g => gradeDist[g] > 0)
+    .map(g => `<span style="display:inline-block;margin-right:14px;font-size:12px"><strong>${g}</strong>: ${gradeDist[g]}</span>`).join('');
+
+  const htmlCetak = `<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<title>Laporan Markah — ${tajukKelas}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#111; margin: 20px 30px; }
+  .header { text-align:center; border-bottom: 2px solid #185FA5; padding-bottom: 10px; margin-bottom: 16px; }
+  .header h1 { font-size: 16px; margin-bottom: 2px; color:#185FA5; }
+  .header h2 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .header p { font-size: 11px; color:#555; }
+  .meta { display:flex; justify-content:space-between; font-size: 11px; color:#444; margin-bottom: 14px; flex-wrap:wrap; gap:6px; }
+  table { width:100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+  th, td { border: 1px solid #999; padding: 5px 6px; text-align: center; }
+  th { background: #E6F1FB; font-weight: 600; }
+  tbody tr:nth-child(even) { background: #f7f7f7; }
+  .ringkasan { display:flex; gap:24px; margin-bottom: 14px; flex-wrap:wrap; }
+  .ringkasan .kotak { border:1px solid #ccc; border-radius:6px; padding:8px 14px; font-size:12px; }
+  .ringkasan .kotak strong { display:block; font-size:16px; color:#185FA5; }
+  .gred-summary { margin-bottom: 16px; padding: 8px 10px; background:#FAEEDA; border-radius:6px; }
+  .tandatangan { display:flex; justify-content:space-between; margin-top:50px; font-size:12px; }
+  .tandatangan div { width: 45%; text-align:center; }
+  .garis-ttd { border-top:1px solid #333; margin-top:50px; padding-top:4px; }
+  @media print {
+    body { margin: 10mm 12mm; }
+    .no-print { display:none; }
+  }
+  .no-print { text-align:center; margin-bottom:16px; }
+  .no-print button { padding:8px 18px; font-size:13px; border-radius:6px; border:1px solid #185FA5; background:#185FA5; color:#fff; cursor:pointer; margin:0 4px; }
+  .no-print button.secondary { background:#fff; color:#185FA5; }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">🖨 Cetak / Simpan PDF</button>
+    <button class="secondary" onclick="window.close()">Tutup</button>
+  </div>
+
+  <div class="header">
+    <h1>INSTITUT PENDIDIKAN GURU KAMPUS DARULAMAN</h1>
+    <h2>LAPORAN MARKAH PENTAKSIRAN BERTERUSAN — MPU2082</h2>
+    <p>Tahun Akademik 2024/2025 &nbsp;|&nbsp; ${tajukKelas}</p>
+  </div>
+
+  <div class="meta">
+    <span>Disediakan oleh: <strong>${namaPencetak}</strong></span>
+    <span>Tarikh Cetak: <strong>${tarikhCetak}, ${masaCetak}</strong></span>
+    <span>Jumlah Pelajar: <strong>${dataCetak.length}</strong></span>
+  </div>
+
+  <div class="ringkasan">
+    <div class="kotak">Purata Markah<strong>${purata}</strong></div>
+    <div class="kotak">Markah Tertinggi<strong>${tertinggi}</strong></div>
+    <div class="kotak">Markah Terendah<strong>${terendah}</strong></div>
+    <div class="kotak">Markah Direkod<strong>${withMarkCetak.length}/${dataCetak.length}</strong></div>
+  </div>
+
+  <div class="gred-summary">
+    <strong style="font-size:12px">Agihan Gred: </strong>${gredRingkasan || '<span style="font-size:12px">Tiada rekod markah lagi</span>'}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Bil</th><th style="text-align:left">Nama</th><th>Angka Giliran</th><th>Kelas</th>
+        <th>Kuiz<br>/10</th><th>HP4<br>/30</th><th>HP5<br>/30</th><th>HP3<br>/15</th><th>HP8<br>/15</th>
+        <th>Jumlah<br>/100</th><th>Gred</th>
+      </tr>
+    </thead>
+    <tbody>${barisJadual}</tbody>
+  </table>
+
+  <div class="tandatangan">
+    <div>
+      <div class="garis-ttd">Tandatangan Pensyarah</div>
+      <div>( ${namaPencetak} )</div>
+    </div>
+    <div>
+      <div class="garis-ttd">Tandatangan Ketua Program</div>
+      <div>( &nbsp; )</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const winCetak = window.open('', '_blank');
+  if (!winCetak) {
+    notify('Sila benarkan pop-up untuk mencetak laporan.', 'error');
+    return;
+  }
+  winCetak.document.open();
+  winCetak.document.write(htmlCetak);
+  winCetak.document.close();
 }
 
 // ================================================================
