@@ -1300,6 +1300,7 @@ function buildSidebarPensyarah() {
     { icon: chartIcon(), label: 'Laporan & Analisis', screen: 'laporan' },
     { icon: starIcon(), label: 'Penilaian Rakan', screen: 'peer-review-view' },
     { icon: awardIcon(), label: 'Merit / Demerit', screen: 'merit-demerit' },
+    { icon: alertIcon(), label: 'Belum Nilai Rakan', screen: 'peer-incomplete' },
   ];
   document.getElementById('sidebar-nav').innerHTML = nav.map(n => `
     <div class="nav-item" id="nav-${n.screen}" onclick="navigateTo('${n.screen}')">
@@ -1340,6 +1341,7 @@ function navigateTo(screen) {
     'laporan': 'Laporan & Analisis',
     'peer-review-view': 'Penilaian Rakan Sebaya',
     'merit-demerit': 'Merit / Demerit Pelajar',
+    'peer-incomplete': 'Pelajar Belum Selesai Penilaian Rakan',
     'pelajar-biodata': 'Profil & Biodata',
     'pelajar-peer': 'Penilaian Rakan Sebaya',
   };
@@ -1352,6 +1354,7 @@ function navigateTo(screen) {
     'laporan': renderLaporan,
     'peer-review-view': renderPeerReviewView,
     'merit-demerit': renderMeritDemerit,
+    'peer-incomplete': renderPeerIncomplete,
     'pelajar-biodata': renderPelajarBiodata,
     'pelajar-peer': renderPelajarPeer,
   };
@@ -1366,6 +1369,7 @@ const chartIcon = () => ic('<line x1="18" y1="20" x2="18" y2="10"/><line x1="12"
 const starIcon = () => ic('<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>');
 const userIcon = () => ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
 const awardIcon = () => ic('<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>');
+const alertIcon = () => ic('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>');
 
 // ================================================================
 // DASHBOARD VIEW
@@ -2126,6 +2130,224 @@ async function hapusMeritDemerit(id, nokp) {
     await loadAllMeritDemerit();
     openMeritModal(nokp);
   }
+}
+
+// ================================================================
+// BELUM NILAI RAKAN VIEW (PENSYARAH)
+// ================================================================
+function getPeerCompletionStatus(p) {
+  const bio = biodataDB[cleanNokp(p.nokp)] || {};
+  if (!bio.kumpulan) return { status: 'noGroup', done: 0, total: 0, belumDinilai: [] };
+  const peers = PELAJAR_LIST.filter(peer => {
+    const pbio = biodataDB[cleanNokp(peer.nokp)] || {};
+    return cleanNokp(peer.nokp) !== cleanNokp(p.nokp) && pbio.kumpulan === bio.kumpulan && peer.kelas === p.kelas;
+  });
+  const ratedTargets = new Set(peerRatingsDB.filter(r => r.Reviewer_ID === p.agiliran).map(r => r.Target_ID));
+  const belumDinilai = peers.filter(peer => !ratedTargets.has(peer.agiliran));
+  const done = peers.length - belumDinilai.length;
+  let status;
+  if (peers.length === 0) status = 'noGroup';
+  else if (done === 0) status = 'none';
+  else if (done < peers.length) status = 'partial';
+  else status = 'complete';
+  return { status, done, total: peers.length, belumDinilai };
+}
+
+function renderPeerIncomplete() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="card" style="margin-bottom:14px">
+      <div class="flex items-center justify-between" style="gap:10px;flex-wrap:wrap">
+        <div><div class="card-title">Pelajar Belum Selesai Penilaian Rakan Sebaya</div><div class="card-subtitle">Senarai pelajar yang belum menilai / belum lengkap menilai semua ahli kumpulan</div></div>
+        <div class="flex items-center gap-8" style="flex-wrap:wrap">
+          <select id="pi-filter-kelas" style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;background:white;">
+            <option>Semua</option><option>PBKK</option><option>PIMK</option><option>PMO</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="cetakSenaraiBelumNilai(document.getElementById('pi-filter-kelas').value)">
+            🖨 Cetak Senarai
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-3" style="margin-bottom:16px" id="pi-stats"></div>
+    <div class="card p-0">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Nama Pelajar (Penilai)</th><th>Kelas</th><th>Kumpulan</th><th>Status</th><th>Kemajuan</th><th>Belum Nilai</th></tr>
+          </thead>
+          <tbody id="pi-tbody"></tbody>
+        </table>
+      </div>
+    </div>`;
+
+  function renderRows() {
+    const kls = document.getElementById('pi-filter-kelas').value;
+    const filtered = PELAJAR_LIST.filter(p => kls === 'Semua' || p.kelas === kls);
+
+    let langsungTiada = 0, separuh = 0, tiadaKumpulan = 0;
+
+    const rows = filtered.map(p => {
+      const bio = biodataDB[cleanNokp(p.nokp)] || {};
+      const info = getPeerCompletionStatus(p);
+      if (info.status === 'noGroup') tiadaKumpulan++;
+      else if (info.status === 'none') langsungTiada++;
+      else if (info.status === 'partial') separuh++;
+      return { p, bio, info };
+    }).filter(r => r.info.status !== 'complete');
+
+    document.getElementById('pi-stats').innerHTML = `
+      <div class="stat-card"><div class="label">Tiada Kumpulan Ditetapkan</div><div class="value">${tiadaKumpulan}</div></div>
+      <div class="stat-card"><div class="label">Langsung Belum Menilai</div><div class="value">${langsungTiada}</div></div>
+      <div class="stat-card"><div class="label">Penilaian Tidak Lengkap</div><div class="value">${separuh}</div></div>`;
+
+    document.getElementById('pi-tbody').innerHTML = rows.length ? rows.map(({p, bio, info}) => {
+      const statusBadge = info.status === 'noGroup'
+        ? `<span class="badge badge-gray">Tiada Kumpulan</span>`
+        : info.status === 'none'
+        ? `<span class="badge badge-red">Belum Menilai</span>`
+        : `<span class="badge badge-amber">Tidak Lengkap</span>`;
+      const belumNamaList = (info.belumDinilai || []).map(x => x.nama.split(' ').slice(0,2).join(' ')).join(', ') || '—';
+      return `<tr>
+        <td><div style="display:flex;align-items:center;gap:8px">${renderAvatar(28, p.nama, bio.gambar || null)}<span>${p.nama}</span></div></td>
+        <td><span class="badge badge-${p.kelas==='PBKK'?'blue':p.kelas==='PIMK'?'purple':'teal'}">${p.kelas}</span></td>
+        <td>${bio.kumpulan || '—'}</td>
+        <td>${statusBadge}</td>
+        <td>${info.total > 0 ? info.done + ' / ' + info.total : '—'}</td>
+        <td style="font-size:12px;color:var(--text-secondary)">${belumNamaList}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="6"><div class="empty-state"><div class="icon">✅</div><p>Semua pelajar dalam kelas ini telah lengkap menilai rakan sekumpulan.</p></div></td></tr>`;
+  }
+
+  document.getElementById('pi-filter-kelas').addEventListener('change', renderRows);
+  renderRows();
+}
+
+// ================================================================
+// CETAKAN SENARAI BELUM NILAI RAKAN
+// ================================================================
+function cetakSenaraiBelumNilai(kelasPilihan) {
+  const filtered = PELAJAR_LIST.filter(p => kelasPilihan === 'Semua' || p.kelas === kelasPilihan);
+
+  const rows = filtered.map(p => {
+    const bio = biodataDB[cleanNokp(p.nokp)] || {};
+    const info = getPeerCompletionStatus(p);
+    return { p, bio, info };
+  }).filter(r => r.info.status !== 'complete');
+
+  rows.sort((a, b) => a.p.kelas.localeCompare(b.p.kelas) || a.p.nama.localeCompare(b.p.nama));
+
+  const tiadaKumpulan = rows.filter(r => r.info.status === 'noGroup').length;
+  const langsungTiada = rows.filter(r => r.info.status === 'none').length;
+  const separuh = rows.filter(r => r.info.status === 'partial').length;
+
+  const tajukKelas = kelasPilihan === 'Semua' ? 'KESELURUHAN KOHORT (SEMUA KELAS)' : 'KELAS ' + kelasPilihan;
+  const tarikhCetak = new Date().toLocaleDateString('ms-MY', { day: '2-digit', month: 'long', year: 'numeric' });
+  const masaCetak = new Date().toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' });
+  const namaPencetak = (currentUser && currentUser.nama) ? currentUser.nama : '—';
+
+  const statusLabel = (s) => s === 'noGroup' ? 'Tiada Kumpulan' : s === 'none' ? 'Belum Menilai' : 'Tidak Lengkap';
+
+  const barisJadual = rows.length ? rows.map((r, i) => {
+    const belumNamaList = (r.info.belumDinilai || []).map(x => x.nama).join(', ') || '—';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td style="text-align:left">${r.p.nama}</td>
+      <td>${r.p.agiliran}</td>
+      <td>${r.p.kelas}</td>
+      <td>${r.bio.kumpulan || '—'}</td>
+      <td>${statusLabel(r.info.status)}</td>
+      <td>${r.info.total > 0 ? r.info.done + '/' + r.info.total : '—'}</td>
+      <td style="text-align:left;font-size:10px">${belumNamaList}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" style="padding:14px">Tiada pelajar bermasalah — semua telah lengkap menilai rakan sekumpulan.</td></tr>`;
+
+  const htmlCetak = `<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<title>Senarai Belum Nilai Rakan — ${tajukKelas}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color:#111; margin: 20px 30px; }
+  .header { text-align:center; border-bottom: 2px solid #185FA5; padding-bottom: 10px; margin-bottom: 16px; }
+  .header h1 { font-size: 16px; margin-bottom: 2px; color:#185FA5; }
+  .header h2 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .header p { font-size: 11px; color:#555; }
+  .meta { display:flex; justify-content:space-between; font-size: 11px; color:#444; margin-bottom: 14px; flex-wrap:wrap; gap:6px; }
+  table { width:100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; }
+  th, td { border: 1px solid #999; padding: 5px 6px; text-align: center; }
+  th { background: #FCEBEB; font-weight: 600; }
+  tbody tr:nth-child(even) { background: #f7f7f7; }
+  .ringkasan { display:flex; gap:24px; margin-bottom: 14px; flex-wrap:wrap; }
+  .ringkasan .kotak { border:1px solid #ccc; border-radius:6px; padding:8px 14px; font-size:12px; }
+  .ringkasan .kotak strong { display:block; font-size:16px; color:#A32D2D; }
+  .tandatangan { display:flex; justify-content:space-between; margin-top:50px; font-size:12px; }
+  .tandatangan div { width: 45%; text-align:center; }
+  .garis-ttd { border-top:1px solid #333; margin-top:50px; padding-top:4px; }
+  @media print {
+    body { margin: 10mm 12mm; }
+    .no-print { display:none; }
+  }
+  .no-print { text-align:center; margin-bottom:16px; }
+  .no-print button { padding:8px 18px; font-size:13px; border-radius:6px; border:1px solid #185FA5; background:#185FA5; color:#fff; cursor:pointer; margin:0 4px; }
+  .no-print button.secondary { background:#fff; color:#185FA5; }
+</style>
+</head>
+<body>
+  <div class="no-print">
+    <button onclick="window.print()">🖨 Cetak / Simpan PDF</button>
+    <button class="secondary" onclick="window.close()">Tutup</button>
+  </div>
+
+  <div class="header">
+    <h1>INSTITUT PENDIDIKAN GURU KAMPUS DARULAMAN</h1>
+    <h2>SENARAI PELAJAR BELUM SELESAI PENILAIAN RAKAN SEBAYA — MPU2082</h2>
+    <p>Tahun Akademik 2024/2025 &nbsp;|&nbsp; ${tajukKelas}</p>
+  </div>
+
+  <div class="meta">
+    <span>Disediakan oleh: <strong>${namaPencetak}</strong></span>
+    <span>Tarikh Cetak: <strong>${tarikhCetak}, ${masaCetak}</strong></span>
+    <span>Jumlah Pelajar Bermasalah: <strong>${rows.length}</strong></span>
+  </div>
+
+  <div class="ringkasan">
+    <div class="kotak">Tiada Kumpulan<strong>${tiadaKumpulan}</strong></div>
+    <div class="kotak">Belum Menilai<strong>${langsungTiada}</strong></div>
+    <div class="kotak">Tidak Lengkap<strong>${separuh}</strong></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Bil</th><th style="text-align:left">Nama</th><th>Angka Giliran</th><th>Kelas</th>
+        <th>Kumpulan</th><th>Status</th><th>Kemajuan</th><th style="text-align:left">Belum Dinilai</th>
+      </tr>
+    </thead>
+    <tbody>${barisJadual}</tbody>
+  </table>
+
+  <div class="tandatangan">
+    <div>
+      <div class="garis-ttd">Tandatangan Pensyarah</div>
+      <div>( ${namaPencetak} )</div>
+    </div>
+    <div>
+      <div class="garis-ttd">Tandatangan Ketua Program</div>
+      <div>( &nbsp; )</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const winCetak = window.open('', '_blank');
+  if (!winCetak) {
+    notify('Sila benarkan pop-up untuk mencetak senarai.', 'error');
+    return;
+  }
+  winCetak.document.open();
+  winCetak.document.write(htmlCetak);
+  winCetak.document.close();
 }
 
 // ================================================================
